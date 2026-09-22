@@ -1,0 +1,27 @@
+{
+  "name": "vibe-full",
+  "version": "1.0.0",
+  "description": "",
+  "main": "script.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --check server.js && node --check script.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gogogo21/VIBE-FULL.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gogogo21/VIBE-FULL/issues"
+  },
+  "homepage": "https://github.com/gogogo21/VIBE-FULL#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "playwright": "^1.63.0",
+    "socket.io": "^4.8.3"
+  }
+}

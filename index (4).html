@@ -1,0 +1,809 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head><script>window.__V0_SANDBOX_ID__="sb-uxme55bmev8q";window.__V0_CHAT_ID__="rJJd2xzh8Sa";(function _k(){try{if(!/\bFirefox\//.test(navigator.userAgent)||"u"<typeof PerformanceNavigationTiming)return;let e=Object.getOwnPropertyDescriptor(PerformanceResourceTiming.prototype,"transferSize");if(!e||!e.get)return;let t=e.get;Object.defineProperty(PerformanceNavigationTiming.prototype,"transferSize",{configurable:!0,get(){let e=t.call(this);if(0!==e||"back_forward"===this.type)return e;let r=window.next,n=r&&"string"==typeof r.version?r.version:"",i=/^16\.2\.(\d+)/.exec(n);return i&&Number(i[1])>=7?1:e}})}catch{}})();window.__V0_SOURCE_MAP_FRAME_ROOT__="file:///vercel/share/v0-project/.next/dev/static";;(function _E(e){let t=Symbol.for("__next_dev_bridge_runtime_observer__"),r=window[t],n=e||{},i=n.messageType||"next-dev-bridge:runtime",a=n.readyMessageType||"next-dev-bridge:runtime-ready",o=n.resetMessageType||"next-dev-bridge:runtime-reset",s=n.targetOrigin||"*",l=!1!==n.isAppDirectory,c="string"==typeof n.sourceMapEndpoint&&n.sourceMapEndpoint?n.sourceMapEndpoint:"",u="string"==typeof n.sourceMapFrameRoot&&n.sourceMapFrameRoot?n.sourceMapFrameRoot.replace(/\/+$/,""):"";if(r)return void f(a,{existing:!0,href:window.location.href,windowId:r.windowId});let d=1,p=`${Date.now()}-${Math.random().toString(36).slice(2)}`,h={errors:[]};function f(e,t){window.parent!==window&&window.parent.postMessage({type:e,...t},s)}async function m(e){let t={...e,id:d++,isFatal:!1,severity:"recoverable",at:new Date().toISOString()};h.errors=[...h.errors,t],f(i,{event:{type:"runtime:error",error:t,errors:h.errors},state:h,href:window.location.href,windowId:p}),c&&_(t).then(e=>{h.errors.some(e=>e.id===t.id)&&(t.mapped=e,h.errors=h.errors.map(e=>e.id===t.id?t:e),f(i,{event:{type:"runtime:error",error:t,errors:h.errors},state:h,href:window.location.href,windowId:p}))}).catch(()=>{})}function g(){0!==h.errors.length&&(h.errors=[],f(i,{event:{type:"runtime:cleared",errors:[]},state:h,href:window.location.href,windowId:p}))}function y(e){var t,r,n,i,a;let o,s,l,c;m((o=w((t=e).error,t.message||"Uncaught error"),s=t.filename||void 0,l=D(t.lineno),c=D(t.colno),{source:"error",name:o.name,message:o.message,stack:o.stack||(r=o.message,n=s,i=l,a=c,n&&i&&a?`${r}
+    at <anonymous> (${n}:${i}:${a})`:""),filename:s,line:l,column:c}))}function v(e){let t;m({source:"unhandledrejection",name:(t=w(e.reason,"Unhandled promise rejection")).name,message:t.message,stack:t.stack})}function b(e){let t=e.data;t&&"object"==typeof t&&t.type===o&&g()}function w(e,t){return e instanceof Error?{name:e.name||"Error",message:e.message||t,stack:e.stack||""}:e&&"object"==typeof e?{name:"string"==typeof e.name?e.name:"Error",message:"string"==typeof e.message?e.message:function(e){try{return JSON.stringify(e)}catch{return""}}(e)||t,stack:"string"==typeof e.stack?e.stack:""}:{name:"Error",message:"string"==typeof e?e:null==e?t:String(e),stack:""}}async function _(e){var t,r;let n=(t=String(e.stack).split("\n").map(j).filter(Boolean),r=e.filename,t.map(e=>({...e,file:function(e,t){var r,n;if("string"!=typeof e||0===e.length)return;let i=C(e);if(i)return I(i);if(r=e,/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(r))return e;if(t&&N(t)===N(e)){let e=C(t);return e?I(e):t}let a=e.startsWith("_next/")?`/${e}`:e;return a.startsWith("/_next/")?I(a):!(n=a).includes("/")&&n.endsWith(".js")&&(n.startsWith("_")||n.includes("._.")||n.startsWith("node_modules_")||n.startsWith("turbopack-"))?I(`/_next/static/chunks/${a}`):e}(e.file,r)})));return{message:e.message,stack:e.stack,frames:n,mappedFrames:n.length>0?await x(n):[]}}async function x(e){let t=function(e){let t=[],r=new Set;for(let n of($(t,r,e),[O,A,P])){let i=function(e,t){let r=!1,n=e.map(e=>{if("string"!=typeof e.file)return e;let n=t(e.file);return n&&n!==e.file?(r=!0,{...e,file:n}):e});return r?n:null}(e,n);i&&$(t,r,i)}return t}(e),r=null;for(let n of t){let t=await S(n);if(function(e){for(let n of e){var t,r;let e=U(t=n)&&"fulfilled"===t.status&&U(t.value)&&U(t.value.originalStackFrame)?t.value.originalStackFrame:null;if(!e||!0===e.ignored)continue;let i="string"!=typeof(r=e.file)?"":r.trim();if(!(!i||function(e){let t=R(e);return/\/(?:_next\/static|\.next\/dev\/static)\/chunks\//.test(t)||t.includes("/next/dist/compiled/")}(i)))return!0}return!1}(t.mappedFrames))return E(e,t.mappedFrames);if(r=t.mappedFrames,!t.shouldTryNextVariant)break}return r??k(e,"No stack frames to map.")}async function S(e){try{let t=function(e){try{return new URL(e,window.location.href).origin!==window.location.origin}catch{return!1}}(c),r={body:JSON.stringify({frames:e,isServer:!1,isEdgeServer:!1,isAppDirectory:l,sourceOrigin:window.location.origin}),cache:"no-store",credentials:t?"omit":"same-origin",method:"POST",mode:t?"cors":"same-origin"};t||(r.headers={"content-type":"application/json"});let n=await fetch(c,{...r});if(!n.ok||204===n.status){let t=await n.text().catch(()=>"");return{mappedFrames:k(e,t||"No original stack frame response from Next dev server."),shouldTryNextVariant:!1}}let i=await n.json();if(!Array.isArray(i))return{mappedFrames:k(e,"Invalid original stack frame response from Next dev server."),shouldTryNextVariant:!1};return{mappedFrames:E(e,i),shouldTryNextVariant:!0}}catch(t){return{mappedFrames:k(e,t instanceof Error?t.message:String(t)),shouldTryNextVariant:!1}}}function E(e,t){return e.map((e,r)=>t[r]||{status:"rejected",reason:"No original stack frame response for frame."})}function k(e,t){return e.map(()=>({status:"rejected",reason:t}))}function $(e,t,r){let n=JSON.stringify(r.map(e=>e.file));t.has(n)||(t.add(n),e.push(r))}function I(e){return u?`${u}/${e.replace(/^\/_next\/static\/?/,"")}`:e}function O(e){let t=T(e);return t?`.next/dev/static/${t.replace(/^\/_next\/static\/?/,"")}`:null}function A(e){let t=T(e);return t?t.replace(/^\/+/,""):null}function P(e){let t=T(e);if(!t)return null;try{return new URL(t,window.location.origin).href}catch{return null}}function T(e){var t,r;let n,i=R(e);if(i.startsWith("/_next/static/"))return i;let a=(r="/.next/dev/static/",-1===(n=(t=i).indexOf(r))?"":t.slice(n+r.length));return a?`/_next/static/${a}`:""}function C(e){if(e.startsWith("/_next/"))return e;if(e.startsWith("_next/"))return`/${e}`;try{let t=new URL(e);return t.pathname.startsWith("/_next/")?t.pathname:""}catch{return""}}function R(e){try{return new URL(e).pathname}catch{}return e.startsWith("/")?e:`/${e}`}function N(e){return e.split("?")[0].split(/[\\/]/).pop()||e}function U(e){return"object"==typeof e&&null!==e}function j(e){let t=e.trim();if(!t.startsWith("at "))return null;let r=t.slice(3),n="<anonymous>",i=r,a=r.indexOf("("),o=r.endsWith(")")?r.length-1:-1;-1!==a&&-1!==o&&o>a&&(n=r.slice(0,a).trim()||"<anonymous>",i=r.slice(a+1,o));let s=/^(.*):(\d+):(\d+)$/.exec(i);return s?{file:s[1],methodName:n,arguments:[],line1:Number(s[2]),column1:Number(s[3])}:null}function D(e){return"number"==typeof e&&Number.isFinite(e)&&e>0?e:void 0}window.addEventListener("error",y),window.addEventListener("unhandledrejection",v),window.addEventListener("message",b),window[t]={windowId:p,getSnapshot:()=>({errors:h.errors.slice()}),reset:g,stop:function(){window.removeEventListener("error",y),window.removeEventListener("unhandledrejection",v),window.removeEventListener("message",b),delete window[t]}},f(a,{existing:!1,href:window.location.href,windowId:p})})({"messageType":"next-dev-bridge:event","sourceMapEndpoint":"/_v0/next-dev-bridge-stack-frames","sourceMapFrameRoot":"file:///vercel/share/v0-project/.next/dev/static"});</script><script async src="/v0-runtime-dist.js"></script><style>nextjs-portal{display: none !important}</style>
+    <link rel="icon" href="./images/logo.png?v=fresh">
+    <link rel="apple-touch-icon" href="./images/logo.png?v=fresh">
+   <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VIBE">
+    <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="VIBE — смотрите вместе">
+    <title>VIBE — Смотри вместе</title>
+    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://googleapis.com" rel="stylesheet">
+<link rel="manifest" href="./manifest.json">
+</head>
+<body>
+
+<div class="background-glow"></div>
+
+<!-- =========================================
+     ГЛАВНАЯ СТРАНИЦА
+========================================== -->
+<div id="homePage">
+
+    <!-- Верхняя панель -->
+    <header class="app-header">
+        <!-- Твой новый стильный логотип-картинка -->
+        <a href="#" class="brand" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+            <img src="images/logo.png" style="width: 34px; height: 34px; object-fit: cover; border-radius: 8px; display: block;" alt="VIBE">
+            <span class="brand-name">VIBE</span>
+        </a>
+
+        <div class="header-search">
+            <input type="text" id="roomSearch" placeholder="Поиск по названию" autocomplete="off">
+            <span class="header-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </span>
+            <div class="search-results" data-search-results="roomSearch"></div>
+        </div>
+
+        <nav class="desktop-nav" aria-label="Основная навигация">
+            <button class="desktop-nav-item active" type="button" data-nav="home">Главная</button>
+            <button class="desktop-nav-item" type="button" data-nav="catalog">Каталог</button>
+            <button class="desktop-nav-item" type="button" data-nav="rooms">Совместный просмотр</button>
+            <button class="desktop-nav-item" type="button" data-nav="news">Новости</button>
+            <button class="desktop-nav-login" type="button" data-nav="login">Войти</button>
+        </nav>
+    </header>
+
+    <main class="home-main">
+
+             <!-- Featured Movie Banner -->
+        <section class="featured-movie">
+            <div class="featured-bg"></div>
+            <div class="featured-overlay"></div>
+
+            <div class="featured-content">
+                <!-- Обновленные красивые плашки рейтингов и жанра в одном стиле -->
+                <div class="featured-badges" style="display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 8px !important; margin-bottom: 12px !important;">
+                    
+                    <!-- Плашка КиноПоиск с оригинальным векторным SVG -->
+                    <span class="badge badge-kp" style="display: inline-flex !important; align-items: center !important; gap: 6px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; background: rgba(0, 0, 0, 0.5) !important; padding: 4px 10px !important; border-radius: 8px !important; backdrop-filter: blur(4px) !important; -webkit-backdrop-filter: blur(4px) !important; height: 26px !important; box-sizing: border-box !important;">
+                        <svg viewBox="0 0 24 24" fill="currentColor" style="width: 14px !important; height: 14px !important; color: #ff6600 !important; display: block !important; flex-shrink: 0 !important;" aria-hidden="true">
+                            <path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path>
+                        </svg>
+                        <span style="font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 11px !important; font-weight: 900 !important; color: #ff6600 !important; text-transform: uppercase !important; letter-spacing: 0.02em !important; line-height: 1 !important;">КП</span>
+                        <span id="featuredKp" style="font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #ffffff !important; font-variant-numeric: tabular-nums !important; line-height: 1 !important;">8.0</span>
+                    </span>
+
+                    <!-- Плашка IMDb -->
+                    <span class="badge badge-imdb" style="display: inline-flex !important; align-items: center !important; gap: 5px !important; border: 1px solid rgba(245, 197, 24, 0.35) !important; background: rgba(245, 197, 24, 0.1) !important; padding: 4px 10px !important; border-radius: 8px !important; height: 26px !important; box-sizing: border-box !important;">
+                        <span style="font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 11px !important; font-weight: 900 !important; color: #f5c518 !important; letter-spacing: -0.02em !important; line-height: 1 !important;">IMDb</span>
+                        <span id="featuredImdb" style="font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #ffffff !important; font-variant-numeric: tabular-nums !important; line-height: 1 !important;">8.1</span>
+                    </span>
+
+                    <!-- Плашка Жанра (Тонкая рамка и легкий фон) -->
+                    <span id="featuredGenre" class="badge badge-genre" style="display: inline-flex !important; align-items: center !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(255, 255, 255, 0.05) !important; padding: 4px 11px !important; border-radius: 8px !important; height: 26px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 12px !important; font-weight: 700 !important; color: rgba(255, 255, 255, 0.8) !important; line-height: 1 !important;">фантастика</span>
+                </div>
+
+                <!-- Плашка Года -->
+                <div class="featured-badges featured-badges-second" style="margin-bottom: 8px;">
+                    <span id="featuredYear" class="badge badge-year" style="display: inline-flex !important; align-items: center !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(255, 255, 255, 0.05) !important; padding: 4px 11px !important; border-radius: 8px !important; height: 26px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 12px !important; font-weight: 700 !important; font-variant-numeric: tabular-nums !important; color: rgba(255, 255, 255, 0.8) !important; line-height: 1 !important;">2026</span>
+                </div>
+
+
+                <h1 id="featuredTitle" class="featured-title">Человек-паук:<br><span class="accent">Новый день</span></h1>
+
+                <p id="featuredDescription" class="featured-desc">
+                    Одинокий и повзрослевший Питер Паркер полностью посвящает себя борьбе...
+                </p>
+
+                                                         <!-- Идеально симметричные, выровненные по краям кнопки -->
+                <div class="vibe-buttons-container" style="display: flex !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; align-items: center !important; margin-top: 20px !important;">
+                    
+                    <!-- Кнопка СМОТРЕТЬ -->
+                    <button id="createRoomHero" style="display: inline-flex !important; flex: 1 !important; width: 50% !important; height: 48px !important; min-height: 48px !important; max-height: 48px !important; align-items: center !important; justify-content: center !important; gap: 8px !important; padding: 0 !important; box-sizing: border-box !important; border-radius: 12px !important; border: 0 !important; background: #7c3aed !important; color: #ffffff !important; cursor: pointer !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0.025em !important; text-transform: uppercase !important; box-shadow: none !important;">
+                        <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 14px !important; height: 14px !important; flex-shrink: 0 !important;">
+                            <svg viewBox="0 0 24 24" fill="currentColor" style="width: 14px !important; height: 14px !important; display: block !important;"><path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd"></path></svg>
+                        </span>
+                        СМОТРЕТЬ
+                    </button>
+                    
+                    <!-- Кнопка ПОДРОБНЕЕ (С изначальным положением, заменен только значок) -->
+                    <button id="joinRoomHero" style="display: inline-flex !important; flex: 1 !important; width: 50% !important; height: 48px !important; min-height: 48px !important; max-height: 48px !important; align-items: center !important; justify-content: center !important; gap: 8px !important; padding: 0 !important; box-sizing: border-box !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(255, 255, 255, 0.04) !important; color: #ffffff !important; cursor: pointer !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0.025em !important; text-transform: uppercase !important; box-shadow: none !important;">
+                        <span style="display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 15px !important; height: 15px !important; flex-shrink: 0 !important;">
+                            <!-- Векторный залитый круг с вырезанной i в стиле Кинопати -->
+                            <svg viewBox="0 0 24 24" style="width: 15px !important; height: 15px !important; display: block !important;">
+                                <path fill="currentColor" fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 14a1 1 0 1 1-2 0v-5a1 1 0 1 1 2 0v5zm-1-8a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                        ПОДРОБНЕЕ
+                    </button>
+                    
+                </div>
+
+
+
+                <div class="featured-dots" aria-label="Слайды фильма">
+                    <span class="active" role="button" aria-label="Слайд 1" tabindex="0"></span>
+                    <span role="button" aria-label="Слайд 2" tabindex="0"></span>
+                    <span role="button" aria-label="Слайд 3" tabindex="0"></span>
+                    <span role="button" aria-label="Слайд 4" tabindex="0"></span>
+                </div>
+            </div>
+        </section>
+
+               <!-- Популярные фильмы -->
+        <section class="popular-section">
+            <div class="section-header">
+                <h2>Популярные<br>фильмы</h2>
+                <button class="section-link" id="openCatalog">Открыть<br>всё</button>
+            </div>
+
+            <div class="movies-scroll">
+                <!-- Карточка 1: Человек-паук -->
+                <article class="movie-card">
+                    <div class="movie-poster poster-new-spider">
+                        <div class="movie-ratings" style="display: flex !important; flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; padding: 8px !important;">
+                            <span class="rating-kp" style="display: inline-flex !important; align-items: center !important; gap: 4px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #ffffff !important;">
+                                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 11px !important; height: 11px !important; color: #ff6600 !important; display: block !important;"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg>
+                                8.0
+                            </span>
+                            <span class="rating-imdb" style="display: inline-flex !important; align-items: center !important; gap: 3px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #f5c518 !important;">IMDb 8.1</span>
+                        </div>
+                    </div>
+                    <h3 class="movie-title">Человек-паук: Новый день</h3>
+                    <span class="movie-category">Фантастика</span>
+                </article>
+
+                <!-- Карточка 2: Одиссея -->
+                <article class="movie-card">
+                    <div class="movie-poster poster-new-london">
+                        <div class="movie-ratings" style="display: flex !important; flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; padding: 8px !important;">
+                            <span class="rating-kp" style="display: inline-flex !important; align-items: center !important; gap: 4px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #ffffff !important;">
+                                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 11px !important; height: 11px !important; color: #ff6600 !important; display: block !important;"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg>
+                                8.2
+                            </span>
+                            <span class="rating-imdb" style="display: inline-flex !important; align-items: center !important; gap: 3px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #f5c518 !important;">IMDb 8.4</span>
+                        </div>
+                    </div>
+                    <h3 class="movie-title">Твоя вина: Лондон</h3>
+                    <span class="movie-category">Приключения</span>
+                </article>
+
+                <!-- Карточка 3: Тёмный рыцарь -->
+                <article class="movie-card">
+                    <div class="movie-poster poster-new-michael">
+                        <div class="movie-ratings" style="display: flex !important; flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; padding: 8px !important;">
+                            <span class="rating-kp" style="display: inline-flex !important; align-items: center !important; gap: 4px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #ffffff !important;">
+                                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 11px !important; height: 11px !important; color: #ff6600 !important; display: block !important;"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg>
+                                7.9
+                            </span>
+                            <span class="rating-imdb" style="display: inline-flex !important; align-items: center !important; gap: 3px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #f5c518 !important;">IMDb 8.0</span>
+                        </div>
+                    </div>
+                    <h3 class="movie-title">Майкл</h3>
+                    <span class="movie-category">Боевик · Драма</span>
+                </article>
+
+                <!-- Карточка 4: Интерстеллар -->
+                <article class="movie-card">
+                    <div class="movie-poster poster-new-thriller">
+                        <div class="movie-ratings" style="display: flex !important; flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; padding: 8px !important;">
+                            <span class="rating-kp" style="display: inline-flex !important; align-items: center !important; gap: 4px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #ffffff !important;">
+                                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 11px !important; height: 11px !important; color: #ff6600 !important; display: block !important;"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg>
+                                8.5
+                            </span>
+                            <span class="rating-imdb" style="display: inline-flex !important; align-items: center !important; gap: 3px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #f5c518 !important;">IMDb 8.7</span>
+                        </div>
+                    </div>
+                    <h3 class="movie-title">Холод</h3>
+                    <span class="movie-category">Триллер</span>
+                </article>
+
+                <!-- Карточка 5: 1+1 -->
+                <article class="movie-card">
+                    <div class="movie-poster poster-5">
+                        <div class="movie-ratings" style="display: flex !important; flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; padding: 8px !important;">
+                            <span class="rating-kp" style="display: inline-flex !important; align-items: center !important; gap: 4px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #ffffff !important;">
+                                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 11px !important; height: 11px !important; color: #ff6600 !important; display: block !important;"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg>
+                                8.0
+                            </span>
+                            <span class="rating-imdb" style="display: inline-flex !important; align-items: center !important; gap: 3px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; background: rgba(0, 0, 0, 0.6) !important; padding: 3px 8px !important; border-radius: 6px !important; height: 20px !important; box-sizing: border-box !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; font-size: 10px !important; font-weight: 900 !important; color: #f5c518 !important;">IMDb 8.1</span>
+                        </div>
+                    </div>
+                    <h3 class="movie-title">1+1</h3>
+                    <span class="movie-category">Комедия · Драма</span>
+                </article>
+            </div>
+        </section>
+    </main>
+</div>
+
+
+<!-- =========================================
+     КАТАЛОГ ФИЛЬМОВ
+========================================== -->
+<section id="catalogPage" class="catalog-page hidden">
+    <div class="catalog-page-content">
+        <header class="app-header catalog-header">
+            <a href="#" class="brand" id="catalogBrand" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+                <img src="images/logo.png" style="width: 34px; height: 34px; object-fit: cover; border-radius: 8px; display: block;" alt="VIBE">
+                <span class="brand-name">VIBE</span>
+            </a>
+            <div class="header-search">
+                <input type="search" id="catalogSearch" placeholder="Поиск по названию" autocomplete="off">
+                <span class="header-search-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </span>
+                <div class="search-results" data-search-results="catalogSearch"></div>
+            </div>
+        </header>
+        <div class="rooms-breadcrumbs catalog-breadcrumbs">
+            <button class="rooms-back" id="catalogBack" type="button">Главная</button>
+            <span>/</span>
+            <strong>Каталог</strong>
+        </div>
+        <div class="rooms-header catalog-heading">
+            <div>
+                <h1>Каталог</h1>
+                <p>Выберите фильм для сегодняшнего просмотра.</p>
+            </div>
+        </div>
+        <div class="catalog-filters" aria-label="Фильтры каталога">
+            <label class="catalog-filter"><span>Тип</span><select id="catalogType"><option value="all">Все типы</option><option value="movie">Фильмы</option><option value="series">Сериалы</option></select></label>
+            <label class="catalog-filter"><span>Жанр</span><select id="catalogGenre"><option value="all">Все жанры</option><option value="action">Боевик</option><option value="drama">Драма</option><option value="sci-fi">Фантастика</option><option value="comedy">Комедия</option><option value="thriller">Триллер</option><option value="adventure">Приключения</option><option value="animation">Анимация</option><option value="horror">Ужасы</option></select></label>
+            <label class="catalog-filter"><span>Год</span><select id="catalogYear"><option value="all">Все годы</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2020">2020-е</option></select></label>
+            <label class="catalog-filter"><span>Сортировка</span><select id="catalogSort"><option value="popular">По популярности</option><option value="rating">По рейтингу</option><option value="newest">Сначала новые</option></select></label>
+        </div>
+        <div class="catalog-grid" id="catalogGrid">
+            <article class="catalog-card" data-type="movie" data-genre="comedy" data-year="2010" data-rating="8.7" data-popularity="1"><div class="catalog-poster poster-5"><div class="catalog-rating"><span class="catalog-rating-kp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong>8.9</strong></span><span class="catalog-rating-imdb"><b>IMDb</b><strong>8.5</strong></span></div></div><h2>1+1</h2><span class="catalog-category">Комедия · Драма</span><p>2011 · Франция</p></article>
+            <article class="catalog-card" data-type="movie" data-genre="sci-fi" data-year="2026" data-rating="8.1" data-popularity="2"><div class="catalog-poster poster-1"><div class="catalog-rating"><span class="catalog-rating-kp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong>8.0</strong></span><span class="catalog-rating-imdb"><b>IMDb</b><strong>8.1</strong></span></div></div><h2>Человек-паук: Новый день</h2><span class="catalog-category">Фантастика</span><p>2026 · США</p></article>
+            <article class="catalog-card" data-type="movie" data-genre="sci-fi" data-year="2010" data-rating="8.7" data-popularity="3"><div class="catalog-poster poster-4"><div class="catalog-rating"><span class="catalog-rating-kp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong>8.5</strong></span><span class="catalog-rating-imdb"><b>IMDb</b><strong>8.7</strong></span></div></div><h2>Интерстеллар</h2><span class="catalog-category">Фантастика · Драма</span><p>2014 · США</p></article>
+            <article class="catalog-card" data-type="movie" data-genre="action" data-year="2000" data-rating="8.0" data-popularity="4"><div class="catalog-poster poster-3"><div class="catalog-rating"><span class="catalog-rating-kp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong>7.9</strong></span><span class="catalog-rating-imdb"><b>IMDb</b><strong>8.0</strong></span></div></div><h2>Тёмный рыцарь</h2><span class="catalog-category">Боевик · Драма</span><p>2008 · США</p></article>
+            <article class="catalog-card" data-type="series" data-genre="drama" data-year="2026" data-rating="8.4" data-popularity="5"><div class="catalog-poster poster-2"><div class="catalog-rating"><span class="catalog-rating-kp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong>8.2</strong></span><span class="catalog-rating-imdb"><b>IMDb</b><strong>8.4</strong></span></div></div><h2>Одиссея</h2><span class="catalog-category">Приключения</span><p>2026 · США</p></article>
+            <article class="catalog-card" data-type="movie" data-genre="action" data-year="2026" data-rating="8.3" data-popularity="6"><div class="catalog-poster poster-1"><div class="catalog-rating"><span class="catalog-rating-kp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89v-16.8h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong>8.3</strong></span><span class="catalog-rating-imdb"><b>IMDb</b><strong>8.2</strong></span></div></div><h2>Громовержцы</h2><span class="catalog-category">Боевик</span><p>2026 · США</p></article>
+        </div>
+        <p class="catalog-empty hidden" id="catalogEmpty">По этим фильтрам ничего не найдено.</p>
+    </div>
+</section>
+
+<!-- =========================================
+     СТРАНИЦА ФИЛЬМА
+========================================== -->
+<section id="detailPage" class="detail-page hidden">
+    <div class="detail-page-content">
+        <header class="app-header detail-header">
+            <a class="brand" href="#" id="detailBrand" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+                <img src="images/logo.png" style="width: 34px; height: 34px; object-fit: cover; border-radius: 8px; display: block;" alt="VIBE">
+                <span class="brand-name">VIBE</span>
+            </a>
+            <div class="header-search">
+                <input type="search" placeholder="Поиск по названию" autocomplete="off">
+                <span class="header-search-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </span>
+                <div class="search-results" data-search-results="detailSearch"></div>
+            </div>
+        </header>
+
+        <div class="detail-hero" id="detailHero">
+            <div class="detail-poster" id="detailPoster"></div>
+            <div class="detail-content">
+                <div class="detail-kicker" id="detailKicker">ФИЛЬМ</div>
+                <h1 id="detailTitle">Человек-паук: Новый день</h1>
+                <p class="detail-original-title hidden" id="detailOriginalTitle">Spider-Man: Brand New Day</p>
+
+                <div class="detail-ratings">
+                    <span class="detail-rating detail-rating-kp"><svg class="rating-kp-svg" viewBox="0 0 24 24" fill="currentColor" aria-label="КиноПоиск"><path d="M12.049 0C5.45 0 .104 5.373.104 12S5.45 24 12.049 24c3.928 0 7.414-1.904 9.592-4.844l-9.803-5.174 6.256 6.418h-3.559l-4.373-6.086V20.4h-2.89V3.6h2.89v6.095L14.535 3.6h3.559l-6.422 6.627 9.98-5.368C19.476 1.911 15.984 0 12.05 0zm10.924 7.133-9.994 4.027 10.917-.713a11.963 11.963 0 0 0-.923-3.314zm-10.065 5.68 10.065 4.054c.458-1.036.774-2.149.923-3.314l-10.988-.74z"></path></svg><strong id="detailKp">8.0</strong></span>
+                    <span class="detail-rating detail-rating-imdb"><b class="rating-imdb-icon">IMDb</b><strong id="detailImdb">8.1</strong></span>
+                </div>
+
+                <div class="detail-facts">
+                    <div><span>Режиссёр</span><strong id="detailDirector">Дестин Дэниел Креттон</strong></div>
+                    <div><span>Год производства</span><strong id="detailYear">2026</strong></div>
+                    <div><span>Страна</span><strong id="detailCountry">США</strong></div>
+                    <div><span>Длительность</span><strong id="detailDuration">2 ч 30 м</strong></div>
+                </div>
+
+                <div class="detail-tags" id="detailTags"></div>
+                <p class="detail-description" id="detailDescription"></p>
+                <button class="detail-watch-button" id="detailWatchButton" type="button">Смотреть</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================
+     ПЛЕЕР ОТДЕЛЬНОГО ФИЛЬМА
+========================================== -->
+<div id="moviePlayerModal" class="movie-player-modal hidden" aria-hidden="true">
+    <div class="movie-player-shell">
+        <header class="movie-player-header">
+            <button class="movie-player-back" id="moviePlayerClose" type="button" aria-label="Закрыть плеер">×</button>
+            <div class="movie-player-brand"><img src="images/logo.png" alt="VIBE"><span>VIBE</span></div>
+            <span class="movie-player-label">ПЛЕЕР</span>
+        </header>
+        <main class="movie-player-main">
+            <div class="movie-player-video" id="moviePlayerVideoFrame">
+                <div class="movie-player-art" id="moviePlayerArt"></div>
+                <div class="movie-player-screen">
+                    <strong id="moviePlayerScreenTitle">Фильм готов к просмотру</strong>
+                    <span>Подключите лицензированный источник видео</span>
+                    <button class="movie-player-start" id="moviePlayerStart" type="button">▶</button>
+                </div>
+                <video id="moviePlayerVideo" class="movie-player-native-video" controls playsinline preload="metadata"></video>
+            </div>
+            <div class="movie-player-info">
+                <div>
+                    <span class="movie-player-eyebrow">СЕЙЧАС СМОТРИМ</span>
+                    <h1 id="moviePlayerTitle">Фильм</h1>
+                    <p id="moviePlayerMeta">Фильм · 2024</p>
+                </div>
+                <button class="movie-player-close-button" id="moviePlayerCloseBottom" type="button">Вернуться к фильму</button>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- =========================================
+     СТРАНИЦА КОМНАТ
+========================================== -->
+<section id="roomsPage" class="rooms-page hidden">
+    <header class="app-header rooms-topbar">
+        <a class="brand" href="#" id="roomsBrand" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+            <img src="images/logo.png" style="width: 34px; height: 34px; object-fit: cover; border-radius: 8px; display: block;" alt="VIBE">
+            <span class="brand-name">VIBE</span>
+        </a>
+        <div class="header-search">
+            <input type="search" placeholder="Поиск по названию" autocomplete="off">
+            <span class="header-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </span>
+        </div>
+    </header>
+    <div class="rooms-page-content">
+        <div class="rooms-breadcrumbs"><button class="rooms-back" id="roomsBack" type="button">Главная</button><span>/</span><strong>Комнаты</strong></div>
+
+        <div class="rooms-header">
+            <h1>Комнаты совместного просмотра</h1>
+            <p>
+                Создайте комнату, отправьте друзьям ссылку
+                и смотрите видео синхронно — без установки
+                приложений и расширений.
+            </p>
+        </div>
+
+        <div class="rooms-actions">
+            <div class="room-action-card">
+                <div class="room-action-icon" aria-hidden="true">＋</div>
+                <h2>Создать комнату</h2>
+                <p>Создайте комнату и пригласите друзей по ссылке.</p>
+                <button class="primary-button room-main-button" id="roomsCreateButton">
+                    Создать комнату
+                </button>
+            </div>
+
+            <div class="room-action-card">
+                <div class="room-action-icon" aria-hidden="true">↗</div>
+                <h2>Войти по ссылке</h2>
+                <p>Вставьте ссылку на комнату, которую вам отправил друг.</p>
+                <div class="room-link-input">
+                    <input type="text" id="roomLinkInput" placeholder="Вставьте ссылку на комнату" autocomplete="off">
+                    <button class="primary-button" id="roomLinkButton">Войти</button>
+                </div>
+                <div class="room-link-error hidden" id="roomLinkError">
+                    Не удалось найти комнату по этой ссылке.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================
+     МОДАЛЬНОЕ ОКНО СОЗДАНИЯ КОМНАТЫ
+========================================== -->
+<div class="modal" id="roomModal" aria-hidden="true">
+    <div class="modal-card">
+        <button class="modal-close" id="closeModal">×</button>
+        <div class="modal-logo"><img src="images/logo.png" alt="VIBE"></div>
+
+        <div id="roomStepPlatform">
+            <span class="modal-step">ШАГ 01</span>
+            <h2>Выберите сервис</h2>
+            <p>Где находится видео, которое хотите посмотреть?</p>
+
+            <div class="platforms">
+                <button class="platform" data-platform="youtube">
+                    <span class="platform-icon">▶</span>
+                    <span>
+                        <strong>YouTube</strong>
+                        <small>Смотреть на YouTube</small>
+                    </span>
+                </button>
+
+                <button class="platform" data-platform="vk">
+                    <span class="platform-icon">VK</span>
+                    <span>
+                        <strong>VK Видео</strong>
+                        <small>Смотреть в VK Видео</small>
+                    </span>
+                </button>
+
+                <button class="platform" data-platform="rutube">
+                    <span class="platform-icon">R</span>
+                    <span>
+                        <strong>RUTUBE</strong>
+                        <small>Смотреть на RUTUBE</small>
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <div id="roomStepVideo" class="room-step hidden">
+            <span class="modal-step">ШАГ 02</span>
+            <h2>Добавьте видео</h2>
+            <p id="platformDescription">Найдите видео и вставьте его ссылку.</p>
+
+            <button class="open-platform" id="openPlatform">Открыть сервис ↗</button>
+
+            <label class="field-label" for="videoUrl">Ссылка на видео</label>
+            <input id="videoUrl" class="room-input" type="url" placeholder="Вставьте ссылку на видео..." autocomplete="off">
+
+            <label class="field-label" for="roomName">Название комнаты</label>
+            <input id="roomName" class="room-input" type="text" placeholder="Вечер кино 🍿" maxlength="40" autocomplete="off">
+
+            <div id="urlError" class="url-error"></div>
+
+            <button class="primary-button modal-button" id="createRoomFinal">Создать комнату</button>
+            <button class="back-button" id="backToPlatforms">← Изменить сервис</button>
+        </div>
+
+        <div id="roomStepReady" class="room-step hidden">
+            <span class="modal-step">ГОТОВО</span>
+            <h2>Комната создана</h2>
+            <p>Отправьте этот код друзьям.</p>
+
+            <div class="room-code">
+                <span id="generatedRoomCode">VIBE-XXXX</span>
+                <button id="copyRoomCode">Копировать</button>
+            </div>
+
+            <div class="room-video-info">
+                <div class="video-info-icon">🎬</div>
+                <div>
+                    <strong id="createdRoomName">Вечер кино</strong>
+                 <!-- Старый ошибочный блок каталога отключён до переноса на верхний уровень. -->
+                 <!--
+                <section id="catalogPage" class="catalog-page hidden">
+                    <div class="catalog-page-content">
+                        <button class="catalog-back" id="catalogBack" type="button">← Главная</button>
+
+                        <div class="catalog-heading">
+                            <div>
+                                <div class="catalog-eyebrow">VIBE / ФИЛЬМЫ</div>
+                                <h1>Каталог</h1>
+                                <p>Выберите фильм для сегодняшнего просмотра.</p>
+                            </div>
+                            <span class="catalog-count hidden" id="catalogCount">0 фильмов</span>
+                        </div>
+
+                        <div class="catalog-filters" aria-label="Фильтры каталога">
+                            <label class="catalog-filter">
+                                <span>Тип</span>
+                                <select id="catalogType">
+                                    <option value="all">Все типы</option>
+                                    <option value="movie">Фильмы</option>
+                                    <option value="series">Сериалы</option>
+                                </select>
+                            </label>
+                            <label class="catalog-filter">
+                                <span>Жанр</span>
+                                <select id="catalogGenre">
+                                    <option value="all">Все жанры</option>
+                                    <option value="action">Боевик</option>
+                                    <option value="drama">Драма</option>
+                                    <option value="sci-fi">Фантастика</option>
+                                    <option value="comedy">Комедия</option>
+                                </select>
+                            </label>
+                            <label class="catalog-filter">
+                                <span>Год</span>
+                                <select id="catalogYear">
+                                    <option value="all">Все годы</option>
+                                    <option value="2026">2026</option>
+                                    <option value="2010">2010-е</option>
+                                    <option value="2000">2000-е</option>
+                                </select>
+                            </label>
+                            <label class="catalog-filter">
+                                <span>Сортировка</span>
+                                <select id="catalogSort">
+                                    <option value="popular">По популярности</option>
+                                    <option value="rating">По рейтингу</option>
+                                    <option value="newest">Сначала новые</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="catalog-grid" id="catalogGrid">
+                            <article class="catalog-card" data-type="movie" data-genre="comedy" data-year="2010" data-rating="8.7" data-popularity="1">
+                                <div class="catalog-poster poster-5"><div class="catalog-rating"><span>КП 8.9</span><span>IMDb 8.5</span></div></div>
+                                <h2>1+1</h2><p>2011 · Комедия, драма</p>
+                            </article>
+                            <article class="catalog-card" data-type="movie" data-genre="sci-fi" data-year="2026" data-rating="8.1" data-popularity="2">
+                                <div class="catalog-poster poster-1"><div class="catalog-rating"><span>КП 8.0</span><span>IMDb 8.1</span></div></div>
+                                <h2>Человек-паук: Новый день</h2><p>2026 · Фантастика</p>
+                            </article>
+                            <article class="catalog-card" data-type="movie" data-genre="sci-fi" data-year="2010" data-rating="8.7" data-popularity="3">
+                                <div class="catalog-poster poster-4"><div class="catalog-rating"><span>КП 8.5</span><span>IMDb 8.7</span></div></div>
+                                <h2>Интерстеллар</h2><p>2014 · Фантастика, драма</p>
+                            </article>
+                            <article class="catalog-card" data-type="movie" data-genre="action" data-year="2000" data-rating="8.0" data-popularity="4">
+                                <div class="catalog-poster poster-3"><div class="catalog-rating"><span>КП 7.9</span><span>IMDb 8.0</span></div></div>
+                                <h2>Тёмный рыцарь</h2><p>2008 · Боевик, драма</p>
+                            </article>
+                            <article class="catalog-card" data-type="series" data-genre="drama" data-year="2026" data-rating="8.4" data-popularity="5">
+                                <div class="catalog-poster poster-2"><div class="catalog-rating"><span>КП 8.2</span><span>IMDb 8.4</span></div></div>
+                                <h2>Одиссея</h2><p>2026 · Драма</p>
+                            </article>
+                            <article class="catalog-card" data-type="movie" data-genre="action" data-year="2026" data-rating="8.3" data-popularity="6">
+                                <div class="catalog-poster poster-1"><div class="catalog-rating"><span>КП 8.3</span><span>IMDb 8.2</span></div></div>
+                                <h2>Громовержцы</h2><p>2026 · Боевик</p>
+                            </article>
+                        </div>
+                        <p class="catalog-empty hidden" id="catalogEmpty">По этим фильтрам ничего не найдено.</p>
+                    </div>
+                </section>
+                -->
+
+                    <small id="createdPlatform">YouTube</small>
+                </div>
+            </div>
+
+            <button class="primary-button modal-button" id="enterRoom">Войти в комнату</button>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================
+     ЭКРАН КОМНАТЫ
+========================================== -->
+<div id="watchPage" class="watch-page hidden">
+    <header class="watch-header">
+        <button class="watch-brand" id="backHome">
+            <img src="images/logo.png" alt="V">
+            <span>VIBE</span>
+        </button>
+
+        <label class="watch-search"><input type="search" placeholder="Поиск по названию" autocomplete="off"><span aria-hidden="true">⌕</span></label>
+
+        <div class="watch-room">
+            <span>КОМНАТА</span>
+            <strong id="watchRoomCode">VIBE-XXXX</strong>
+        </div>
+
+        <div class="watch-actions">
+            <button class="watch-avatar" title="Вы">В</button>
+        </div>
+    </header>
+
+    <main class="watch-layout">
+        <section class="player-section">
+            <div class="video-player">
+                <div class="video-placeholder">
+                    <div class="video-v"><img src="images/logo.png" alt="VIBE"></div>
+                    <div class="video-placeholder-title">VIBE</div>
+                    <div class="video-placeholder-text">Здесь будет ваше видео</div>
+                    <button class="big-play" id="playButton">▶</button>
+                </div>
+                <div class="video-source-badge hidden" id="videoSourceBadge">VK Видео · официальный плеер</div>
+
+                <div class="player-controls">
+                    <button id="playerPlay" type="button" title="Воспроизвести или поставить на паузу" aria-label="Воспроизвести или поставить на паузу">▶</button>
+                    <input class="player-progress" id="playerProgress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Позиция видео">
+                    <span class="player-time">00:00</span>
+                    <button id="playerMute" type="button" title="Звук" aria-label="Включить или выключить звук">🔊</button>
+                    <button id="playerFullscreen" type="button" title="Полный экран" aria-label="Открыть полный экран">⛶</button>
+                </div>
+            </div>
+
+            <div class="watch-video-info">
+                <div>
+                    <span class="watch-label">СЕЙЧАС СМОТРИМ</span>
+                    <h1 id="watchTitle">Вечер кино</h1>
+                    <p id="watchPlatform">YouTube</p>
+                </div>
+                <div class="sync-status">
+                    <span class="sync-dot"></span>
+                    Синхронизировано
+                </div>
+                <button class="watch-action room-share-button" id="inviteButton" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    <span>Поделиться комнатой</span>
+                </button>
+            </div>
+
+            <nav class="watch-tabs" aria-label="Разделы комнаты">
+                <button class="watch-tab active" type="button">Чат</button>
+                <button class="watch-tab" type="button">Плейлист</button>
+                <button class="watch-tab" type="button">Настройки</button>
+            </nav>
+        </section>
+
+        <aside class="watch-sidebar">
+            <div class="sidebar-section people-section">
+                <div class="sidebar-title">
+                    <strong>Участники</strong>
+                    <span id="peopleCount">1</span>
+                </div>
+                <div class="people-list">
+                    <div class="person">
+                        <div class="person-avatar">В</div>
+                        <div class="person-info">
+                            <strong>Вы</strong>
+                            <small><span>смотрит</span><span class="watch-room-timer" id="watchTimer">00:00</span></small>
+                        </div>
+                        <span class="person-status"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-section">
+                <div class="sidebar-title">
+                    <strong>Чат</strong>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                </div>
+                <form class="chat-input" id="chatForm">
+                    <input id="chatInput" type="text" maxlength="200" placeholder="Написать сообщение..." autocomplete="off">
+                    <button type="submit">↑</button>
+                </form>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<!-- =========================================
+     МОБИЛЬНОЕ НИЖНЕЕ МЕНЮ
+========================================== -->
+<nav class="mobile-bottom-nav">
+    <button class="mobile-nav-item active" data-nav="home">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 9.5V20h14V9.5"/></svg>
+        </span>
+        <span>Главная</span>
+    </button>
+    <button class="mobile-nav-item" data-nav="catalog">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>
+        </span>
+        <span>Каталог</span>
+    </button>
+    <button class="mobile-nav-item" data-nav="rooms" id="mobileRooms">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18a4 4 0 0 0-8 0"/><circle cx="12" cy="9" r="3.2"/><path d="M4 19a5 5 0 0 1 4-4.5"/><path d="M20 19a5 5 0 0 0-4-4.5"/></svg>
+        </span>
+        <span>Комнаты</span>
+    </button>
+    <button class="mobile-nav-item" data-nav="news">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+        </span>
+        <span>Новости</span>
+    </button>
+    <button class="mobile-nav-item" data-nav="login" id="mobileLogin">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+        </span>
+        <span>Войти</span>
+    </button>
+</nav>
+
+<!-- Auth Modal -->
+<div class="auth-modal hidden" id="authModal">
+    <div class="auth-modal-content">
+        <button class="auth-close" id="authClose" type="button">×</button>
+        <div class="auth-logo">V</div>
+        <h2 id="authTitle">С возвращением</h2>
+        <p id="authSubtitle">Войдите в свой аккаунт VIBE</p>
+        <div class="auth-form">
+            <input type="email" id="authEmail" placeholder="Email" autocomplete="email">
+            <input type="password" id="authPassword" placeholder="Пароль" autocomplete="current-password">
+            <input type="password" id="authPasswordConfirm" class="hidden" placeholder="Повторите пароль" autocomplete="new-password">
+            <button class="primary-button auth-submit" id="authSubmit" type="button">Войти</button>
+        </div>
+        <p class="auth-switch">
+            <span id="authSwitchText">Нет аккаунта?</span>
+            <button type="button" id="authSwitch">Зарегистрироваться</button>
+        </p>
+    </div>
+</div>
+
+<!-- Account Page -->
+<section class="account-page hidden" id="accountPage">
+    <button class="rooms-back" id="accountBack" type="button">← Назад</button>
+    <div class="account-content">
+        <div class="account-avatar" id="accountAvatar">V</div>
+        <h1 id="accountName">Мой аккаунт</h1>
+        <p id="accountEmail">—</p>
+        <div class="account-menu">
+            <button type="button" class="account-menu-item">
+                <span>👤</span>
+                <span>Профиль</span>
+            </button>
+            <button type="button" class="account-menu-item">
+                <span>🎬</span>
+                <span>Мои комнаты</span>
+            </button>
+            <button type="button" class="account-menu-item">
+                <span>⚙️</span>
+                <span>Настройки</span>
+            </button>
+        </div>
+        <button type="button" class="account-logout" id="accountLogout">Выйти</button>
+    </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://vk.com/js/api/videoplayer.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js?v=9"></script>
+
+<div id="install-banner" class="install-banner">
+    <button id="install-close" class="install-close">×</button>
+    <div class="install-icon">📱</div>
+    <div class="install-content">
+        <strong>У нас появилось приложение!</strong>
+        <span>Добавьте его на главный экран, чтобы пользоваться сайтом как приложением.</span>
+    </div>
+    <button id="install-button">Добавить</button>
+</div>
+
+<script>
+    let deferredPrompt;
+    const banner = document.getElementById('install-banner');
+    const installButton = document.getElementById('install-button');
+    const closeButton = document.getElementById('install-close');
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredPrompt = event;
+        if (banner) banner.classList.add('show');
+    });
+
+    if (installButton) {
+        installButton.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                if (outcome === 'accepted') {
+                    banner.classList.remove('show');
+                }
+            } else {
+                alert('Откройте меню браузера и выберите «Добавить на главный экран».');
+            }
+        });
+    }
+
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            banner.classList.remove('show');
+        });
+    }
+</script>
+
+
+
+</body>
+</html>
