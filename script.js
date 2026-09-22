@@ -14,6 +14,8 @@ let roomPlaybackTimer = null;
 let roomClientId = Math.random().toString(36).slice(2);
 let roomIframe = null;
 let roomVkPlayer = null;
+let roomRutubeReady = false;
+let roomRutubeLastTime = 0;
 let roomSocket = typeof window.io === "function" ? window.io() : null;
 let roomSocketHandlersBound = false;
 let roomApplyingRemoteState = false;
@@ -1329,7 +1331,7 @@ function loadRoomVideo() {
         iframe.src = "https://www.youtube.com/embed/" + encodeURIComponent(youtubeId) + "?autoplay=0&controls=1&rel=0&playsinline=1&enablejsapi=1&origin=" + origin;
     } else if (selectedPlatform === "rutube") {
         const rutubeId = getRutubeVideoId(currentVideoUrl);
-        iframe.src = rutubeId ? "https://rutube.ru/play/embed/" + rutubeId + "" : currentVideoUrl;
+        iframe.src = rutubeId ? "https://rutube.ru/play/embed/" + rutubeId + "?api=1" : currentVideoUrl;
     } else {
         iframe.src = currentVideoUrl;
     }
@@ -1349,11 +1351,29 @@ function loadRoomVideo() {
 
     iframe.addEventListener("load", function () {
         listenToYouTubePlayer();
+        listenToRutubePlayer();
+        if (selectedPlatform === "rutube") roomRutubeReady = true;
         if (roomPendingSync) {
             applyRemotePlayback(roomPendingSync);
             roomPendingSync = null;
         }
     }, { once: true });
+}
+
+function sendRutubeCommand(command, data) {
+    if (!roomIframe || selectedPlatform !== "rutube" || !roomIframe.contentWindow) return;
+    roomIframe.contentWindow.postMessage({
+        type: command,
+        data: data || {}
+    }, "https://rutube.ru");
+}
+
+function listenToRutubePlayer() {
+    if (!roomIframe || selectedPlatform !== "rutube" || !roomIframe.contentWindow) return;
+    roomRutubeReady = false;
+    sendRutubeCommand("player:ready");
+    sendRutubeCommand("player:getDuration");
+    sendRutubeCommand("player:getCurrentTime");
 }
 
 function mountVkPlayer(placeholder) {
@@ -1472,7 +1492,8 @@ function applyRemotePlayback(payload) {
         : 0;
     const seconds = (Number(payload.position ?? payload.seconds) || 0) + elapsed;
     roomApplyingRemoteState = true;
-    roomPendingSync = roomIframe ? null : { position: seconds, playing: Boolean(payload.playing) };
+    const rutubeWaiting = selectedPlatform === "rutube" && !roomRutubeReady;
+    roomPendingSync = roomIframe && !rutubeWaiting ? null : { position: seconds, playing: Boolean(payload.playing) };
     setPlaybackState(seconds, Boolean(payload.playing), false);
     if (selectedPlatform === "youtube" && roomIframe) {
         sendYouTubeCommand("seekTo", [seconds, true]);
@@ -1482,6 +1503,10 @@ function applyRemotePlayback(payload) {
         if (typeof roomVkPlayer.seek === "function") roomVkPlayer.seek(seconds);
         if (payload.playing && typeof roomVkPlayer.play === "function") roomVkPlayer.play();
         if (!payload.playing && typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
+    }
+    if (selectedPlatform === "rutube" && roomIframe && roomRutubeReady) {
+        sendRutubeCommand("player:setCurrentTime", { time: seconds });
+        sendRutubeCommand(payload.playing ? "player:play" : "player:pause");
     }
     window.setTimeout(function () {
         roomApplyingRemoteState = false;
@@ -1515,7 +1540,7 @@ function listenToYouTubePlayer() {
 }
 
 window.addEventListener("message", function (event) {
-    if (!roomIframe || event.source !== roomIframe.contentWindow || selectedPlatform !== "youtube") return;
+    if (!roomIframe || event.source !== roomIframe.contentWindow) return;
 
     let payload = event.data;
     if (typeof payload === "string") {
@@ -1526,7 +1551,46 @@ window.addEventListener("message", function (event) {
         }
     }
 
-    if (!payload || payload.event !== "infoDelivery" || !payload.info) return;
+    if (selectedPlatform === "rutube") {
+        const type = String(payload && (payload.type || payload.event || ""));
+        const data = payload && payload.data;
+        const value = typeof data === "number" ? data : data && (data.time ?? data.currentTime ?? data.value);
+        const duration = data && (data.duration ?? data.totalTime);
+
+        if (type === "player:ready" || type === "ready") {
+            roomRutubeReady = true;
+            sendRutubeCommand("player:getDuration");
+            sendRutubeCommand("player:getCurrentTime");
+            if (roomPendingSync) {
+                const pendingSync = roomPendingSync;
+                roomPendingSync = null;
+                applyRemotePlayback(pendingSync);
+            }
+        }
+        if (typeof duration === "number" && playerProgress) {
+            playerProgress.dataset.duration = String(duration);
+        }
+        if (typeof value === "number") {
+            const previousTime = roomRutubeLastTime;
+            const jumped = Math.abs(value - previousTime) > 1.5;
+            roomPlaybackSeconds = value;
+            roomRutubeLastTime = value;
+            renderPlaybackTime();
+            if ((type.includes("seek") || jumped) && !roomApplyingRemoteState) {
+                setPlaybackState(value, roomPlaybackRunning, true);
+            }
+        }
+
+        const state = String(data && (data.state || data.status) || payload.state || "").toLowerCase();
+        if (type.includes("play") || state === "playing" || state === "play") {
+            setPlaybackState(roomPlaybackSeconds, true, !roomApplyingRemoteState);
+        } else if (type.includes("pause") || state === "paused" || state === "pause" || state === "ended") {
+            setPlaybackState(roomPlaybackSeconds, false, !roomApplyingRemoteState);
+        }
+        return;
+    }
+
+    if (selectedPlatform !== "youtube" || !payload || payload.event !== "infoDelivery" || !payload.info) return;
     if (typeof payload.info.currentTime === "number") {
         roomPlaybackSeconds = payload.info.currentTime;
         renderPlaybackTime();
@@ -1545,6 +1609,8 @@ function toggleRoomPlayback() {
     } else if (selectedPlatform === "vk" && roomVkPlayer) {
         if (nextState && typeof roomVkPlayer.play === "function") roomVkPlayer.play();
         if (!nextState && typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
+    } else if (selectedPlatform === "rutube") {
+        sendRutubeCommand(nextState ? "player:play" : "player:pause");
     }
     setPlaybackState(roomPlaybackSeconds, nextState, true);
 }
@@ -1838,6 +1904,8 @@ if (playerProgress) {
             sendYouTubeCommand("seekTo", [position, true]);
         } else if (selectedPlatform === "vk" && roomVkPlayer && typeof roomVkPlayer.seek === "function") {
             roomVkPlayer.seek(position);
+        } else if (selectedPlatform === "rutube") {
+            sendRutubeCommand("player:setCurrentTime", { time: position });
         }
 
         if (roomSocket && roomSocket.connected) {
