@@ -39,7 +39,7 @@ function snapshot(room) {
         name: room.name,
         position: Math.max(0, positionAt(room)),
         playing: room.playing,
-        updatedAt: Date.now(),
+        updatedAt: room.updatedAt,
         users: io.sockets.adapter.rooms.get(room.code)?.size || 0
     };
 }
@@ -95,7 +95,7 @@ io.on("connection", function (socket) {
         room.position = position;
         room.playing = Boolean(payload.playing);
         room.updatedAt = Date.now();
-        io.to(room.code).emit("room:playback", {
+        socket.to(room.code).emit("room:playback", {
             position: positionAt(room),
             playing: room.playing,
             updatedAt: room.updatedAt,
@@ -142,45 +142,3 @@ setInterval(function () {
 server.listen(port, "0.0.0.0", function () {
     console.log(`VIBE server listening on http://localhost:${port}`);
 });
-
-// === НАДЕЖНЫЙ МОСТ СИНХРОНИЗАЦИИ (В КОНЕЦ ФАЙЛА SERVER.JS) ===
-if (typeof io !== 'undefined') {
-    io.on('connection', (socket) => {
-        
-        // 1. Гость зашел и сообщает об этом
-        socket.on('request-current-video', (data) => {
-            const roomId = data.roomId;
-            socket.join(roomId); // Включаем гостя в комнату сокетов
-            
-            // Запрашиваем актуальное видео у Создателя комнаты (у остальных участников)
-            socket.to(roomId).emit('get-creator-video-state', { requesterId: socket.id });
-        });
-
-        // 2. Создатель услышал запрос, взял ссылку из своего плеера и прислал серверу
-        socket.on('reply-creator-video-state', (data) => {
-            // Сервер перенаправляет эту ссылку лично тому гостю, который её просил
-            if (data.requesterId) {
-                io.to(data.requesterId).emit('room-init-video', {
-                    videoUrl: data.videoUrl,
-                    platform: data.platform,
-                    seconds: data.seconds,
-                    isPlaying: data.isPlaying
-                });
-            }
-        });
-    });
-}
-
-// В самом конце файла server.js проверим, пересылает ли сервер комнату
-if (typeof io !== 'undefined') {
-    io.on('connection', (socket) => {
-        // Пересылка стандартных команд room:playback для ПК версий
-        socket.on("room:playback", (data) => {
-            if (data && data.roomId) {
-                socket.to(data.roomId).emit("room:playback", data);
-            } else {
-                socket.broadcast.emit("room:playback", data); // отправка всем на случай если roomId пустой
-            }
-        });
-    });
-}

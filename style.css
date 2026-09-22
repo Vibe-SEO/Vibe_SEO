@@ -2077,6 +2077,169 @@ input.player-progress::-moz-range-thumb {
 ===================================================== */
 
 @media (max-width: 767px) {
+    #watchPage .watch-header {
+        flex: 0 0 56px;
+        min-height: 56px;
+        height: 56px;
+        padding: 8px 12px;
+        background: #0b0c10;
+    }
+
+    #watchPage .watch-brand {
+        min-width: 52px;
+        color: #fff;
+        font-size: 15px;
+    }
+
+    #watchPage .watch-brand img,
+    #watchPage .watch-avatar {
+        display: none;
+    }
+
+    #watchPage .watch-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        min-height: calc(100dvh - 56px);
+        padding: 0 12px 84px;
+        overflow: visible;
+    }
+
+    #watchPage .player-section,
+    #watchPage .watch-sidebar {
+        display: contents;
+    }
+
+    #watchPage .video-player {
+        position: relative;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        flex: 0 0 auto;
+        margin-top: 12px;
+        border-radius: 12px;
+    }
+
+    #watchPage .video-placeholder,
+    #watchPage .video-placeholder iframe {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    #watchPage .player-controls {
+        position: absolute;
+        z-index: 5;
+        display: flex;
+        height: 42px;
+        padding: 0 8px;
+        gap: 7px;
+    }
+
+    #watchPage .player-controls.is-external {
+        display: none;
+    }
+
+    #watchPage .watch-video-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 15px 2px 12px;
+    }
+
+    #watchPage .watch-video-info > div:first-child {
+        min-width: 0;
+        flex: 1;
+    }
+
+    #watchPage .watch-video-info h1 {
+        overflow-wrap: anywhere;
+        font-size: 19px;
+    }
+
+    #watchPage .sync-status {
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 6px 8px;
+        font-size: 9px;
+    }
+
+    #watchPage .room-share-button {
+        order: 3;
+        width: 100%;
+        margin-top: 4px;
+    }
+
+    #watchPage .watch-tabs {
+        order: 5;
+        min-height: 46px;
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    #watchPage .people-section {
+        order: 6;
+        display: block;
+        padding: 14px 2px;
+        border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    #watchPage .people-section .sidebar-title,
+    #watchPage .chat-section .sidebar-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    #watchPage .chat-section {
+        order: 7;
+        display: flex;
+        flex-direction: column;
+        min-height: 300px;
+        height: 300px;
+        margin: 14px 0 0;
+        padding: 14px 12px 12px;
+        border: 1px solid rgba(255, 255, 255, .09);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, .025);
+    }
+
+    #watchPage .chat-messages {
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 2px 0 10px;
+    }
+
+    #watchPage .chat-input {
+        display: flex;
+        flex: 0 0 42px;
+        min-width: 0;
+        height: 42px;
+        margin: 0;
+    }
+
+    #watchPage .chat-input input {
+        min-width: 0;
+        font-size: 13px;
+    }
+
+    #watchPage .chat-input button {
+        flex: 0 0 42px;
+    }
+}
+
+@media (min-width: 768px) {
+    #watchPage .watch-brand img,
+    #watchPage .video-v {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
 
     /* ---------- ОСНОВА ---------- */
 
@@ -8936,6 +9099,163 @@ button[class*="share"],
     flex-direction: column !important; /* На телефоне выстраиваем кнопки в столбик */
     gap: 10px !important;
     width: 100% !important;
+}
+
+@media (max-width: 767px) {
+    #watchPage .watch-header {
+        flex: 0 0 56px !important;
+        min-height: 56px !important;
+        height: 56px !important;
+        padding: 8px 12px !important;
+        background: #0b0c10 !important;
+    }
+
+    #watchPage .watch-brand {
+        min-width: 52px !important;
+        color: #fff !important;
+        font-size: 15px !important;
+    }
+
+    #watchPage .watch-brand img,
+    #watchPage .watch-avatar,
+    #watchPage .video-v {
+        display: none !important;
+    }
+
+    #watchPage .watch-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0 !important;
+        min-height: calc(100dvh - 56px) !important;
+        padding: 0 12px 84px !important;
+        overflow: visible !important;
+    }
+
+    #watchPage .player-section,
+    #watchPage .watch-sidebar {
+        display: contents !important;
+    }
+
+    #watchPage .video-player {
+        position: relative !important;
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 16 / 9 !important;
+        flex: 0 0 auto !important;
+        margin-top: 12px !important;
+        border-radius: 12px !important;
+    }
+
+    #watchPage .video-placeholder,
+    #watchPage .video-placeholder iframe {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    #watchPage .player-controls {
+        position: absolute !important;
+        z-index: 5 !important;
+        display: flex !important;
+        height: 42px !important;
+        padding: 0 8px !important;
+        gap: 7px !important;
+    }
+
+    #watchPage .player-controls.is-external {
+        display: none !important;
+    }
+
+    #watchPage .watch-video-info {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding: 15px 2px 12px !important;
+    }
+
+    #watchPage .watch-video-info > div:first-child {
+        min-width: 0 !important;
+        flex: 1 !important;
+    }
+
+    #watchPage .watch-video-info h1 {
+        overflow-wrap: anywhere !important;
+        font-size: 19px !important;
+    }
+
+    #watchPage .sync-status {
+        flex: 0 0 auto !important;
+        margin: 0 !important;
+        padding: 6px 8px !important;
+        font-size: 9px !important;
+    }
+
+    #watchPage .room-share-button {
+        order: 3 !important;
+        width: 100% !important;
+        margin-top: 4px !important;
+    }
+
+    #watchPage .watch-tabs {
+        order: 5 !important;
+        min-height: 46px !important;
+        margin: 0 -12px !important;
+        padding: 0 12px !important;
+    }
+
+    #watchPage .people-section {
+        order: 6 !important;
+        display: block !important;
+        padding: 14px 2px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, .08) !important;
+    }
+
+    #watchPage .people-section .sidebar-title,
+    #watchPage .chat-section .sidebar-title {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        margin-bottom: 10px !important;
+    }
+
+    #watchPage .chat-section {
+        order: 7 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 300px !important;
+        height: 300px !important;
+        margin: 14px 0 0 !important;
+        padding: 14px 12px 12px !important;
+        border: 1px solid rgba(255, 255, 255, .09) !important;
+        border-radius: 14px !important;
+        background: rgba(255, 255, 255, .025) !important;
+    }
+
+    #watchPage .chat-messages {
+        min-height: 0 !important;
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 2px 0 10px !important;
+    }
+
+    #watchPage .chat-input {
+        display: flex !important;
+        flex: 0 0 42px !important;
+        min-width: 0 !important;
+        height: 42px !important;
+        margin: 0 !important;
+    }
+
+    #watchPage .chat-input input {
+        min-width: 0 !important;
+        font-size: 13px !important;
+    }
+
+    #watchPage .chat-input button {
+        flex: 0 0 42px !important;
+    }
 }
 
 

@@ -689,7 +689,6 @@ function openMovieDetails(title) {
     document.querySelectorAll("input[placeholder='Поиск по названию']").forEach(function (input) {
         input.blur();
     });
-
     if (homePage) homePage.classList.add("hidden");
     if (catalogPage) catalogPage.classList.add("hidden");
     if (roomsPage) roomsPage.classList.add("hidden");
@@ -1243,13 +1242,8 @@ function openWatchRoom() {
     addSystemMessage("Вы вошли в комнату.");
     startRoomChannel();
 
-    // Запрашиваем состояние у сервера, чтобы гость мгновенно подхватил видео
-    if (typeof socket !== 'undefined' && typeof currentRoom !== 'undefined' && currentRoom) {
-        console.log("VIBE: Гость запрашивает актуальное видео у сервера...");
-        socket.emit('request-current-video', { roomId: currentRoom });
-    } else {
-        loadRoomVideo();
-    }
+    // Данные комнаты приходят из room:join; локальная ссылка нужна только до ответа сервера.
+    loadRoomVideo();
 }
 
 function getRutubeVideoId(url) {
@@ -1449,9 +1443,9 @@ function setPlaybackState(seconds, isPlaying, shouldBroadcast) {
     if (roomPlaybackTimer) clearInterval(roomPlaybackTimer);
     if (roomPlaybackRunning) {
         roomPlaybackTimer = setInterval(function () {
-            roomPlaybackSeconds += 1;
+            roomPlaybackSeconds += 0.25;
             renderPlaybackTime();
-        }, 1000);
+        }, 250);
     }
 
     if (shouldBroadcast) {
@@ -1473,7 +1467,10 @@ function setPlaybackState(seconds, isPlaying, shouldBroadcast) {
 
 function applyRemotePlayback(payload) {
     if (!payload) return;
-    const seconds = Number(payload.position ?? payload.seconds) || 0;
+    const elapsed = payload.playing && payload.updatedAt
+        ? Math.max(0, (Date.now() - Number(payload.updatedAt)) / 1000)
+        : 0;
+    const seconds = (Number(payload.position ?? payload.seconds) || 0) + elapsed;
     roomApplyingRemoteState = true;
     roomPendingSync = roomIframe ? null : { position: seconds, playing: Boolean(payload.playing) };
     setPlaybackState(seconds, Boolean(payload.playing), false);
@@ -1493,7 +1490,7 @@ function applyRemotePlayback(payload) {
 
 function reconcileRemotePlayback(payload) {
     if (!payload || !payload.playing || !roomPlaybackRunning) return;
-    const expected = Number(payload.position) || 0;
+    const expected = (Number(payload.position) || 0) + Math.max(0, (Date.now() - Number(payload.updatedAt || Date.now())) / 1000);
     if (Math.abs(expected - roomPlaybackSeconds) > 1.5) {
         applyRemotePlayback(payload);
     }
@@ -1572,6 +1569,7 @@ function startRoomChannel() {
     if (roomSocket) {
         if (!roomSocketHandlersBound) {
             roomSocket.on("room:playback", function (payload) {
+                if (payload && payload.source === roomSocket.id) return;
                 applyRemotePlayback(payload);
             });
             roomSocket.on("room:clock", reconcileRemotePlayback);
@@ -1604,6 +1602,7 @@ function startRoomChannel() {
             if (watchTitle) watchTitle.textContent = currentRoomName;
             if (watchPlatform) watchPlatform.textContent = getPlatformName(selectedPlatform);
             updateRoomPeople(room.users || 1);
+            loadRoomVideo();
             applyRemotePlayback({ position: room.position, playing: room.playing });
         });
         return;
@@ -1808,30 +1807,20 @@ function addSystemMessage(text) {
 // =====================================================
 
 function toggleRoomPlayback() {
-    // Меняем состояние (если играло — ставим на паузу, и наоборот)
-    roomPlaybackRunning = !roomPlaybackRunning;
+    const nextState = !roomPlaybackRunning;
 
     // Управляем локальным плеером в зависимости от платформы
     if (selectedPlatform === "vk" && roomVkPlayer) {
-        if (roomPlaybackRunning) {
+        if (nextState) {
             if (typeof roomVkPlayer.play === "function") roomVkPlayer.play();
         } else {
             if (typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
         }
     } else if (selectedPlatform === "youtube") {
-        sendYouTubeCommand(roomPlaybackRunning ? "playVideo" : "pauseVideo");
+        sendYouTubeCommand(nextState ? "playVideo" : "pauseVideo");
     }
 
-    // МГНОВЕННО ОТПРАВЛЯЕМ КОМАНДУ НА СЕРВЕР (Синхронизация для всех)
-    if (typeof roomSocket !== 'undefined' && roomSocket && roomSocket.connected) {
-        console.log("VIBE: Отправляю клик плей/пауза на сервер через room:playback");
-        roomSocket.emit("room:playback", { 
-            position: roomPlaybackSeconds || 0, 
-            playing: roomPlaybackRunning 
-        });
-    }
-
-    renderPlaybackTime();
+    setPlaybackState(roomPlaybackSeconds, nextState, true);
 }
 
 if (playButton) playButton.addEventListener("click", toggleRoomPlayback);
@@ -2081,41 +2070,6 @@ document.addEventListener("keydown", function (event) {
 openRoomFromUrl();
 console.log("VIBE успешно запущен.");
 
-    // [ДЛЯ ГОСТЯ] Принимаем ссылку, которую прислал нам создатель комнаты
-    socket.on('room-init-video', function(data) {
-        console.log("VIBE: Ура! Получил прямую ссылку от создателя:", data);
-        if (!data.videoUrl) return;
-
-        currentVideoUrl = data.videoUrl;
-        
-        // ИСПРАВЛЕНО: Если в ссылке есть vk, принудительно выставляем платформу VK
-        if (data.videoUrl.includes('vk.com') || data.videoUrl.includes('vkvideo.ru')) {
-            selectedPlatform = "vk";
-        } else {
-            if (typeof selectedPlatform !== 'undefined') selectedPlatform = data.platform;
-        }
-        
-        if (typeof roomPlaybackSeconds !== 'undefined') roomPlaybackSeconds = data.seconds;
-        
-        // Сначала переключаем интерфейс на страницу просмотра, чтобы блоки были видимы
-        if (typeof openWatchRoom === 'function' && document.getElementById("watchPage") && document.getElementById("watchPage").classList.contains("hidden")) {
-            openWatchRoom(); 
-        }
-
-        // Запускаем правильный плеер
-        if (typeof loadRoomVideo === 'function') {
-            loadRoomVideo();
-            
-            // Ждем загрузки фрейма и выставляем точную секунду фильма
-            setTimeout(function() {
-                if (typeof roomVkPlayer !== 'undefined' && roomVkPlayer) {
-                    if (typeof roomVkPlayer.seek === 'function') roomVkPlayer.seek(data.seconds);
-                    if (data.isPlaying && typeof roomVkPlayer.play === 'function') roomVkPlayer.play();
-                }
-            }, 3000); // 3 секунды задержки для мобильного интернета
-        }
-    });
-
     // =====================================================
 // РАБОЧАЯ КНОПКА «ПОДЕЛИТЬСЯ КОМНАТОЙ» (В КОНЕЦ ФАЙЛА)
 // =====================================================
@@ -2206,86 +2160,3 @@ window.openWatchRoom = function() {
     if (typeof backupOpenWatchRoomForShare === 'function') backupOpenWatchRoomForShare();
     initializeShareButton(); // Вызываем проверку кнопки повторно
 };
-
-// === УНИВЕРСАЛЬНЫЙ СИНХРОНИЗАТОР ГОСТЯ И СОЗДАТЕЛЯ (В КОНЕЦ SCRIPT.JS) ===
-function setupVibeBridge() {
-    // Авто-определение активного сокет-объекта в вашем проекте
-    const activeSocket = (typeof roomSocket !== 'undefined' && roomSocket) || 
-                         (typeof roomChannel !== 'undefined' && roomChannel) || 
-                         (typeof socket !== 'undefined' && socket);
-
-    if (!activeSocket) {
-        // Если сокеты ещё не инициализировались, подождем немного и проверим снова
-        setTimeout(setupVibeBridge, 500);
-        return;
-    }
-
-    console.log("VIBE: Мост синхронизации успешно подключен к сокету.");
-
-    // Перехватываем открытие комнаты и просим сервер выдать видео
-    const defaultOpenWatchRoom = window.openWatchRoom;
-    window.openWatchRoom = function() {
-        if (typeof defaultOpenWatchRoom === 'function') defaultOpenWatchRoom();
-        if (typeof currentRoom !== 'undefined' && currentRoom) {
-            console.log("VIBE: Запрашиваю видео у сервера для комнаты:", currentRoom);
-            activeSocket.emit('request-current-video', { roomId: currentRoom });
-        }
-    };
-
-    // [ОБРАБОТЧИК ДЛЯ СОЗДАТЕЛЯ] Отдаем свои данные, когда заходит новый гость
-    activeSocket.on('get-creator-video-state', function(data) {
-        if (typeof currentVideoUrl !== 'undefined' && currentVideoUrl) {
-            console.log("VIBE: Я создатель комнаты, отправляю параметры гостю...");
-            let currentSec = typeof roomPlaybackSeconds !== 'undefined' ? roomPlaybackSeconds : 0;
-            let isRunning = typeof roomPlaybackRunning !== 'undefined' ? roomPlaybackRunning : false;
-            
-            activeSocket.emit('reply-creator-video-state', {
-                requesterId: data.requesterId,
-                videoUrl: currentVideoUrl,
-                platform: typeof selectedPlatform !== 'undefined' ? selectedPlatform : "vk",
-                seconds: currentSec,
-                isPlaying: isRunning
-            });
-        }
-    });
-
-    // [ОБРАБОТЧИК ДЛЯ ГОСТЯ] Принимаем данные от создателя комнаты (ПК или телефона)
-    activeSocket.on('room-init-video', function(data) {
-        // Защита: если я сам создал это видео и оно уже идет, игнорируем
-        if (typeof roomIframe !== 'undefined' && roomIframe && typeof currentVideoUrl !== 'undefined' && currentVideoUrl === data.videoUrl) {
-            return;
-        }
-
-        console.log("VIBE: Получены прямые видео-данные сокета:", data);
-        currentVideoUrl = data.videoUrl;
-        if (typeof selectedPlatform !== 'undefined') selectedPlatform = data.platform;
-        if (typeof roomPlaybackSeconds !== 'undefined') roomPlaybackSeconds = data.seconds;
-        
-        if (typeof loadRoomVideo === 'function') {
-            loadRoomVideo();
-            
-            // Фиксированная задержка для подгрузки iframe и выставления времени
-            setTimeout(function() {
-                if (typeof roomVkPlayer !== 'undefined' && roomVkPlayer) {
-                    if (typeof roomVkPlayer.seek === 'function') roomVkPlayer.seek(data.seconds);
-                    if (data.isPlaying && typeof roomVkPlayer.play === 'function') roomVkPlayer.play();
-                }
-            }, 3000);
-        }
-    });
-    
-    // Подхватываем старые события "room:playback", если они используются сервером
-    activeSocket.on("room:playback", function(data) {
-        console.log("VIBE: Получена команда синхронизации room:playback", data);
-        if (typeof data.position !== 'undefined') roomPlaybackSeconds = data.position;
-        
-        if (typeof roomVkPlayer !== 'undefined' && roomVkPlayer) {
-            if (typeof roomVkPlayer.seek === 'function') roomVkPlayer.seek(data.position);
-            if (data.playing && typeof roomVkPlayer.play === 'function') roomVkPlayer.play();
-            if (!data.playing && typeof roomVkPlayer.pause === 'function') roomVkPlayer.pause();
-        }
-    });
-}
-
-// Запускаем мост
-setupVibeBridge();
