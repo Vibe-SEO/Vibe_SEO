@@ -9258,6 +9258,115 @@ button[class*="share"],
     }
 }
 
+/* Финальная шапка комнаты повторяет общую шапку VIBE. */
+#watchPage .watch-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 60 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    box-sizing: border-box !important;
+}
+
+#watchPage .watch-brand {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex-shrink: 0 !important;
+    color: var(--text) !important;
+    text-decoration: none !important;
+}
+
+#watchPage .watch-brand img {
+    display: block !important;
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 8px !important;
+    object-fit: cover !important;
+}
+
+#watchPage .watch-brand span {
+    color: var(--text) !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    letter-spacing: .06em !important;
+}
+
+#watchPage .watch-search {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    flex: 1 1 auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+#watchPage .watch-search input {
+    width: 100% !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+    padding: 13px 42px 13px 18px !important;
+    border-radius: 15px !important;
+    background: rgba(255, 255, 255, .05) !important;
+    border: 1px solid var(--border) !important;
+    font-size: 14px !important;
+}
+
+#watchPage .watch-search > span {
+    position: absolute !important;
+    top: 50% !important;
+    right: 15px !important;
+    width: 18px !important;
+    height: 18px !important;
+    color: var(--muted) !important;
+    transform: translateY(-50%) !important;
+}
+
+#watchPage .watch-search > span svg {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@media (max-width: 767px) {
+    #watchPage .watch-header {
+        position: sticky !important;
+        top: 0 !important;
+        flex: 0 0 64px !important;
+        min-height: 64px !important;
+        height: 64px !important;
+        padding: 12px !important;
+        gap: 10px !important;
+    }
+
+    #watchPage .watch-brand {
+        gap: 7px !important;
+    }
+
+    #watchPage .watch-brand img {
+        width: 34px !important;
+        height: 34px !important;
+    }
+
+    #watchPage .watch-brand span {
+        font-size: 17px !important;
+    }
+
+    #watchPage .watch-search input {
+        height: 40px !important;
+        padding: 0 34px 0 12px !important;
+        border-radius: 11px !important;
+        font-size: 12px !important;
+    }
+
+    #watchPage .watch-search > span {
+        right: 11px !important;
+        width: 15px !important;
+        height: 15px !important;
+    }
+}
+
 
 
     

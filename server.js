@@ -44,9 +44,16 @@ function snapshot(room) {
     };
 }
 
-function broadcastRoom(room) {
+async function broadcastRoom(room) {
+    const sockets = await io.in(room.code).fetchSockets();
     io.to(room.code).emit("room:users", {
-        count: io.sockets.adapter.rooms.get(room.code)?.size || 0
+        count: sockets.length,
+        participants: sockets.map(function (member) {
+            return {
+                id: member.id,
+                joinedAt: member.data.joinedAt || Date.now()
+            };
+        })
     });
 }
 
@@ -83,6 +90,7 @@ io.on("connection", function (socket) {
         }
         socket.join(room.code);
         socket.data.roomCode = room.code;
+        socket.data.joinedAt = Date.now();
         callback?.({ ok: true, room: snapshot(room) });
         broadcastRoom(room);
     });
@@ -118,6 +126,7 @@ io.on("connection", function (socket) {
         if (!code) return;
         socket.leave(code);
         socket.data.roomCode = null;
+        socket.data.joinedAt = null;
         const room = getRoom(code);
         if (room) broadcastRoom(room);
     });

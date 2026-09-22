@@ -20,6 +20,8 @@ let roomSocket = typeof window.io === "function" ? window.io() : null;
 let roomSocketHandlersBound = false;
 let roomApplyingRemoteState = false;
 let roomPendingSync = null;
+let roomParticipants = [];
+let roomParticipantsTimer = null;
 
 // =====================================================
 // ELEMENTS
@@ -802,6 +804,11 @@ function leaveRoomSocket() {
     if (roomSocket && roomSocket.connected && currentRoom) {
         roomSocket.emit("room:leave");
     }
+    if (roomParticipantsTimer) {
+        window.clearInterval(roomParticipantsTimer);
+        roomParticipantsTimer = null;
+    }
+    roomParticipants = [];
 }
 
 // =====================================================
@@ -1299,6 +1306,9 @@ function loadRoomVideo() {
         return;
     }
 
+    roomRutubeReady = false;
+    roomRutubeLastTime = 0;
+
     // ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ДЛЯ МОБИЛЬНЫХ И ГОСТЕЙ: спасает от сброса selectedPlatform
     if (currentVideoUrl.includes("vk.com") || currentVideoUrl.includes("vkvideo.ru")) {
         selectedPlatform = "vk";
@@ -1615,20 +1625,49 @@ function toggleRoomPlayback() {
     setPlaybackState(roomPlaybackSeconds, nextState, true);
 }
 
-function updateRoomPeople(count) {
+function formatRoomDuration(seconds) {
+    const totalSeconds = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor(totalSeconds % 3600 / 60);
+    const remainder = totalSeconds % 60;
+    if (hours > 0) {
+        return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
+    }
+    return String(minutes).padStart(2, "2") + ":" + String(remainder).padStart(2, "0");
+}
+
+function renderParticipantTimers() {
+    const now = Date.now();
+    if (!peopleList) return;
+    peopleList.querySelectorAll("[data-joined-at]").forEach(function (timer) {
+        const joinedAt = Number(timer.dataset.joinedAt) || now;
+        timer.textContent = formatRoomDuration((now - joinedAt) / 1000);
+    });
+}
+
+function updateRoomPeople(payload) {
+    const data = typeof payload === "number" ? { count: payload, participants: [] } : (payload || {});
+    roomParticipants = Array.isArray(data.participants) ? data.participants : [];
+    const count = Number(data.count) || roomParticipants.length || 1;
     if (peopleCount) peopleCount.textContent = String(Math.max(1, count));
     if (!peopleList) return;
 
-    peopleList.querySelectorAll(".remote-person").forEach(function (person) {
-        person.remove();
-    });
+    peopleList.replaceChildren();
 
-    for (let index = 1; index < count; index += 1) {
+    const participants = roomParticipants.length ? roomParticipants : [{ id: roomSocket && roomSocket.id, joinedAt: Date.now() }];
+    participants.forEach(function (participant, index) {
         const person = document.createElement("div");
         person.className = "person remote-person";
-        person.innerHTML = "<div class=\"person-avatar second\">V</div><div class=\"person-info\"><strong>Участник " + index + "</strong><small>онлайн</small></div><span class=\"person-status\"></span>";
+        const isCurrentUser = roomSocket && participant.id === roomSocket.id;
+        const label = isCurrentUser ? "Вы" : "Участник " + (index + 1);
+        const avatarClass = isCurrentUser ? "" : " second";
+        person.innerHTML = "<div class=\"person-avatar" + avatarClass + "\">" + (isCurrentUser ? "В" : "V") + "</div><div class=\"person-info\"><strong>" + label + "</strong><small><span>онлайн</span> <span class=\"watch-room-timer\" data-joined-at=\"" + Number(participant.joinedAt || Date.now()) + "\">00:00</span></small></div><span class=\"person-status\"></span>";
         peopleList.appendChild(person);
+    });
+    if (!roomParticipantsTimer) {
+        roomParticipantsTimer = window.setInterval(renderParticipantTimers, 1000);
     }
+    renderParticipantTimers();
 }
 
 function startRoomChannel() {
@@ -1640,7 +1679,7 @@ function startRoomChannel() {
             });
             roomSocket.on("room:clock", reconcileRemotePlayback);
             roomSocket.on("room:users", function (payload) {
-                updateRoomPeople(Number(payload && payload.count) || 1);
+                updateRoomPeople(payload);
             });
             roomSocket.on("room:chat", function (payload) {
                 if (payload && payload.username && payload.text) addChatMessage(payload.username, payload.text, true);
@@ -1667,7 +1706,7 @@ function startRoomChannel() {
             currentRoomName = room.name || currentRoomName;
             if (watchTitle) watchTitle.textContent = currentRoomName;
             if (watchPlatform) watchPlatform.textContent = getPlatformName(selectedPlatform);
-            updateRoomPeople(room.users || 1);
+            updateRoomPeople({ count: room.users || 1, participants: [] });
             loadRoomVideo();
             applyRemotePlayback({ position: room.position, playing: room.playing });
         });
