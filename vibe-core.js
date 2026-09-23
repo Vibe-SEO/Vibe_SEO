@@ -1,7 +1,3 @@
-// =====================================================
-// VIBE
-// Основной JavaScript
-// =====================================================
 
 let selectedPlatform = "";
 let currentRoom = "";
@@ -16,16 +12,206 @@ let roomIframe = null;
 let roomVkPlayer = null;
 let roomRutubeReady = false;
 let roomRutubeLastTime = 0;
-let roomSocket = typeof window.io === "function" ? window.io() : null;
+let roomSocket = null;
 let roomSocketHandlersBound = false;
+
+function ensureRoomSocket() {
+    if (roomSocket) return roomSocket;
+    if (typeof window.io !== "function") {
+        console.warn("VIBE: socket.io не загружен");
+        return null;
+    }
+    try {
+        const host = (window.location && window.location.hostname) || "";
+        const isProxyHost = /github\.dev|githubbox|codespaces|gitpod|loca\.lt|ngrok/i.test(host);
+        roomSocket = window.io({
+            path: "/socket.io/",
+            // На github.dev websocket часто мёртвый — только polling
+            transports: isProxyHost ? ["polling"] : ["polling", "websocket"],
+            upgrade: !isProxyHost,
+            reconnection: true,
+            reconnectionAttempts: 12,
+            reconnectionDelay: 1000,
+            timeout: 15000,
+            autoConnect: true,
+            forceNew: false
+        });
+        roomSocket.on("connect_error", function (err) {
+            console.warn("VIBE socket connect_error:", err && err.message ? err.message : err);
+        });
+    } catch (e) {
+        console.warn("VIBE socket init:", e);
+        try { roomSocket = window.io(); } catch (e2) { roomSocket = null; }
+    }
+    return roomSocket;
+}
+
+// Не блокируем загрузку страницы — подключаемся чуть позже
+if (typeof window !== "undefined") {
+    window.setTimeout(function () {
+        try { ensureRoomSocket(); } catch (e) {}
+    }, 50);
+}
 let roomApplyingRemoteState = false;
 let roomPendingSync = null;
 let roomParticipants = [];
 let roomParticipantsTimer = null;
+let moviePlayerLoadTimer = null;
+let isRoomHost = false;
+let roomVideoLoaded = false;
+const isMobileVibe = /Android|iPhone|iPad|iPod|Mobile|IEMobile/i.test(navigator.userAgent || "")
+    || (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 820px)").matches);
+let lastRemoteApplyAt = 0;
+let lastRemotePlayingState = null;
+let lastRemoteSeekAt = 0;
+let roomForcePausedUntil = 0; // игнор "play" событий от Rutube после паузы
+let rutubePauseLockTimer = null;
+let roomPlayerReadyAt = 0;
+let roomLastLoadedUrl = "";
 
-// =====================================================
-// ELEMENTS
-// =====================================================
+/* ===== Sync engine (по образцу production room-player) =====
+ * - postMessage {type, data} + JSON.stringify
+ * - не трогаем iframe.src при синке
+ * - mediaReady / expectedPlaying / pendingSeek
+ */
+const roomPlayerCtl = {
+    mediaReady: false,
+    expectedPlaying: null, // true|false|null
+    expectedPlayingAt: 0,
+    pendingSeek: null,
+    lastKnownTime: 0,
+    lastKnownAt: 0,
+    playing: false
+};
+
+function resetRoomPlayerCtl() {
+    roomPlayerCtl.mediaReady = false;
+    roomPlayerCtl.expectedPlaying = null;
+    roomPlayerCtl.expectedPlayingAt = 0;
+    roomPlayerCtl.pendingSeek = null;
+    roomPlayerCtl.lastKnownTime = 0;
+    roomPlayerCtl.lastKnownAt = Date.now();
+    roomPlayerCtl.playing = false;
+}
+
+function rutubePost(type, data) {
+    const iframe = roomIframe || (typeof getPlayerIframe === "function" && getPlayerIframe());
+    if (!iframe || !iframe.contentWindow) return;
+    const payload = { type: type, data: data || {} };
+    try { iframe.contentWindow.postMessage(payload, "*"); } catch (e) {}
+    try { iframe.contentWindow.postMessage(JSON.stringify(payload), "*"); } catch (e) {}
+}
+
+function rutubeCtlSeek(seconds) {
+    const t = Math.max(0, Number(seconds) || 0);
+    roomPlayerCtl.pendingSeek = t;
+    if (!roomPlayerCtl.mediaReady) return;
+    rutubePost("player:setCurrentTime", { time: t });
+}
+
+function rutubeCtlPlay() {
+    roomPlayerCtl.expectedPlaying = true;
+    roomPlayerCtl.expectedPlayingAt = Date.now();
+    rutubePost("player:play", {});
+}
+
+function rutubeCtlPause() {
+    roomPlayerCtl.expectedPlaying = false;
+    roomPlayerCtl.expectedPlayingAt = Date.now();
+    rutubePost("player:pause", {});
+}
+
+function rutubeCtlApplyRemote(seconds, wantPlaying) {
+    const drift = Math.abs((Number(seconds) || 0) - getCtlCurrentTime());
+    // seek только при заметном рассинхроне
+    const needSeek = drift > (isMobileVibe ? 6 : 2);
+    if (needSeek) rutubeCtlSeek(seconds);
+    if (wantPlaying) rutubeCtlPlay();
+    else rutubeCtlPause();
+}
+
+function getCtlCurrentTime() {
+    if (roomPlayerCtl.playing && roomPlayerCtl.lastKnownAt) {
+        return roomPlayerCtl.lastKnownTime + (Date.now() - roomPlayerCtl.lastKnownAt) / 1000;
+    }
+    return roomPlayerCtl.lastKnownTime;
+}
+
+function isRutubeMessageOrigin(origin) {
+    if (!origin || typeof origin !== "string") return false;
+    return origin === "https://rutube.ru"
+        || origin.endsWith(".rutube.ru")
+        || origin === "https://cdnvideo.ru"
+        || origin.endsWith(".cdnvideo.ru");
+}
+
+function handleRutubeMessage(payload) {
+    if (!payload || typeof payload !== "object") return;
+    const type = String(payload.type || "");
+    const data = payload.data || {};
+
+    if (type === "player:ready" || type === "player:init") {
+        roomPlayerCtl.mediaReady = true;
+        if (roomPlayerCtl.pendingSeek != null) {
+            rutubePost("player:setCurrentTime", { time: roomPlayerCtl.pendingSeek });
+        }
+        return;
+    }
+    if (type === "player:playStart") {
+        roomPlayerCtl.mediaReady = true;
+        roomPlayerCtl.playing = true;
+        roomPlayerCtl.lastKnownAt = Date.now();
+        if (roomPlayerCtl.pendingSeek != null) {
+            const t = roomPlayerCtl.pendingSeek;
+            roomPlayerCtl.pendingSeek = null;
+            rutubePost("player:setCurrentTime", { time: t });
+        }
+        // подтверждение play от плеера
+        const recent = Date.now() - roomPlayerCtl.expectedPlayingAt < 2500;
+        if (recent && roomPlayerCtl.expectedPlaying === false) {
+            // мы хотели паузу — вернуть
+            rutubePost("player:pause", {});
+            return;
+        }
+        setPlaybackState(getCtlCurrentTime(), true, isRoomHost && !roomApplyingRemoteState);
+        return;
+    }
+    if (type === "player:playComplete") {
+        roomPlayerCtl.playing = false;
+        setPlaybackState(getCtlCurrentTime(), false, isRoomHost && !roomApplyingRemoteState);
+        return;
+    }
+    if (type === "player:changeState") {
+        const state = data.state;
+        if (typeof state !== "string") return;
+        const isPlaying = state === "playing";
+        const isPaused = state === "paused" || state === "pause" || state === "stopped" || state === "ended" || state === "completed";
+        if (!isPlaying && !isPaused) return;
+        const recent = Date.now() - roomPlayerCtl.expectedPlayingAt < 2500;
+        if (recent && roomPlayerCtl.expectedPlaying !== null && roomPlayerCtl.expectedPlaying !== isPlaying) {
+            // игнор эха / конфликт с нашей командой
+            if (roomPlayerCtl.expectedPlaying) rutubePost("player:play", {});
+            else rutubePost("player:pause", {});
+            return;
+        }
+        roomPlayerCtl.playing = isPlaying;
+        roomPlayerCtl.lastKnownAt = Date.now();
+        setPlaybackState(getCtlCurrentTime(), isPlaying, isRoomHost && !roomApplyingRemoteState);
+        return;
+    }
+    if (type === "player:currentTime") {
+        const t = data.time;
+        if (typeof t !== "number" || !Number.isFinite(t)) return;
+        roomPlayerCtl.mediaReady = true;
+        roomPlayerCtl.lastKnownTime = t;
+        roomPlayerCtl.lastKnownAt = Date.now();
+        roomPlaybackSeconds = t;
+        if (typeof renderPlaybackTime === "function") renderPlaybackTime();
+        return;
+    }
+}
+
+
 
 const roomModal = document.getElementById("roomModal");
 const createRoomHero = document.getElementById("createRoomHero");
@@ -66,7 +252,6 @@ const chatMessages = document.getElementById("chatMessages");
 const peopleList = document.querySelector("#watchPage .people-list");
 const videoSourceBadge = document.getElementById("videoSourceBadge");
 
-// Rooms page
 const roomsPage = document.getElementById("roomsPage");
 const roomsBack = document.getElementById("roomsBack");
 const roomsCreateButton = document.getElementById("roomsCreateButton");
@@ -74,6 +259,7 @@ const roomLinkInput = document.getElementById("roomLinkInput");
 const roomLinkButton = document.getElementById("roomLinkButton");
 const roomLinkError = document.getElementById("roomLinkError");
 const homePage = document.getElementById("homePage");
+const siteFooter = document.querySelector(".site-footer");
 const detailPage = document.getElementById("detailPage");
 const detailBack = document.getElementById("detailBack");
 const detailBrand = document.getElementById("detailBrand");
@@ -115,14 +301,16 @@ const catalogFilters = [
     document.getElementById("catalogSort")
 ];
 
-// Mobile nav
 const mobileRooms = document.getElementById("mobileRooms");
 const mobileLogin = document.getElementById("mobileLogin");
 const authModal = document.getElementById("authModal");
 const authClose = document.getElementById("authClose");
 const mobileNavItems = document.querySelectorAll(".mobile-nav-item, .desktop-nav-item, .desktop-nav-login");
+const newsModal = document.getElementById("newsModal");
+const newsModalClose = document.getElementById("newsModalClose");
+const newsFeedbackForm = document.getElementById("newsFeedbackForm");
+const newsFeedbackInput = document.getElementById("newsFeedbackInput");
 
-// Auth
 const authSwitch = document.getElementById("authSwitch");
 const authTitle = document.getElementById("authTitle");
 const authSubtitle = document.getElementById("authSubtitle");
@@ -130,7 +318,35 @@ const authPasswordConfirm = document.getElementById("authPasswordConfirm");
 const authSubmit = document.getElementById("authSubmit");
 let authRegisterMode = false;
 
-// Quick actions
+function openNewsModal() {
+    if (!newsModal) return;
+    newsModal.classList.remove("hidden");
+    newsModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+}
+
+function closeNewsModal() {
+    if (!newsModal) return;
+    newsModal.classList.add("hidden");
+    newsModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+}
+
+if (newsModalClose) newsModalClose.addEventListener("click", closeNewsModal);
+if (newsModal) {
+    newsModal.addEventListener("click", function (event) {
+        if (event.target === newsModal) closeNewsModal();
+    });
+}
+if (newsFeedbackForm) {
+    newsFeedbackForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (!newsFeedbackInput || !newsFeedbackInput.value.trim()) return;
+        newsFeedbackInput.value = "";
+        newsFeedbackInput.placeholder = "Спасибо за обратную связь!";
+    });
+}
+
 const quickCreate = document.getElementById("quickCreate");
 const quickJoin = document.getElementById("quickJoin");
 const openCatalog = document.getElementById("openCatalog");
@@ -146,9 +362,6 @@ const featuredDots = document.querySelectorAll(".featured-dots span");
 let activeFeaturedTitle = "Человек-паук: Новый день";
 let featuredTimer = null;
 
-// =====================================================
-// SUPABASE
-// =====================================================
 
 const SUPABASE_URL = "https://eyeopuiomtuuebgidcow.supabase.co";
 const SUPABASE_KEY = "sb_publishable_A7Px99MPvVcbQD-dlHsB-A_8DctMq9l";
@@ -169,9 +382,6 @@ const supabaseClient = window.supabase && typeof window.supabase.createClient ==
         }
     };
 
-// =====================================================
-// AUTH
-// =====================================================
 
 const accountPage = document.getElementById("accountPage");
 const accountBack = document.getElementById("accountBack");
@@ -280,9 +490,14 @@ if (accountLogout) {
     });
 }
 
-// =====================================================
-// ROOMS PAGE
-// =====================================================
+
+function syncFooterVisibility() {
+    if (!siteFooter) return;
+    const movieModalVisible = !!moviePlayerModal && !moviePlayerModal.classList.contains("hidden");
+    const showFooter = (!homePage || !homePage.classList.contains("hidden")) ||
+        (!catalogPage || !catalogPage.classList.contains("hidden"));
+    siteFooter.style.display = showFooter && !movieModalVisible ? "flex" : "none";
+}
 
 function openRoomsPage() {
     if (roomModal) {
@@ -297,6 +512,7 @@ function openRoomsPage() {
     if (catalogPage) catalogPage.classList.add("hidden");
 
     if (roomsPage) roomsPage.classList.remove("hidden");
+    syncFooterVisibility();
     document.body.style.overflow = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -314,6 +530,7 @@ function openCatalogPage() {
     if (homePage) homePage.classList.add("hidden");
     if (catalogPage) catalogPage.classList.remove("hidden");
 
+    syncFooterVisibility();
     document.body.style.overflow = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
     applyCatalogFilters();
@@ -596,22 +813,6 @@ const featuredSlides = [
         description: "Новая история любви, в которой расстояние, ошибки прошлого и большой город проверяют чувства героев.",
         genre: "драма",
         year: "2025"
-    },
-    {
-        title: "Майкл",
-        desktopImage: "images/posterMICHAEL.png",
-        mobileImage: "images/michael_poster.png",
-        description: "История музыканта, чей голос, движение и талант изменили мировую сцену навсегда.",
-        genre: "биография · музыка",
-        year: "2025"
-    },
-    {
-        title: "Холод",
-        desktopImage: "images/xolod.png",
-        mobileImage: "images/xolod_poster.png",
-        description: "В закрытом мире, где каждый шаг оставляет след, героиня пытается сохранить свободу и себя.",
-        genre: "триллер",
-        year: "2025"
     }
 ];
 
@@ -700,6 +901,7 @@ function openMovieDetails(title) {
     if (roomModal) roomModal.classList.remove("show");
 
     detailPage.classList.remove("hidden");
+    syncFooterVisibility();
     document.body.style.overflow = "";
     detailPage.dataset.poster = details.poster;
     detailTitle.textContent = title;
@@ -724,6 +926,7 @@ function openMovieDetails(title) {
 function closeMovieDetails() {
     if (detailPage) detailPage.classList.add("hidden");
     if (homePage) homePage.classList.remove("hidden");
+    syncFooterVisibility();
     document.title = "VIBE — Смотри вместе";
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -734,6 +937,7 @@ function closeCatalogPage() {
     const homePage = document.getElementById("homePage");
     if (homePage) homePage.classList.remove("hidden");
 
+    syncFooterVisibility();
     document.body.style.overflow = "";
     document.title = "VIBE — Смотри вместе";
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -745,6 +949,7 @@ function closeRoomsPage() {
     const homePage = document.getElementById("homePage");
     if (homePage) homePage.classList.remove("hidden");
 
+    syncFooterVisibility();
     document.body.style.overflow = "";
     document.title = "VIBE — Смотри вместе";
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -756,40 +961,63 @@ function openMoviePlayer(title) {
 
     moviePlayerModal.classList.remove("hidden");
     moviePlayerModal.setAttribute("aria-hidden", "false");
+    syncFooterVisibility();
     document.body.style.overflow = "hidden";
 
     if (moviePlayerArt) moviePlayerArt.style.backgroundImage = "url('" + details.posterUrl + "')";
     if (moviePlayerTitle) moviePlayerTitle.textContent = title;
     if (moviePlayerMeta) moviePlayerMeta.textContent = details.year + " · " + details.original;
     if (moviePlayerScreenTitle) moviePlayerScreenTitle.textContent = title;
-    if (moviePlayerVideo) {
-        moviePlayerVideo.pause();
-        moviePlayerVideo.removeAttribute("src");
-        moviePlayerVideo.load();
-        moviePlayerVideo.classList.remove("is-ready");
+
+    window.activeMovieTitle = title;
+    setMoviePlayerSource("vibix");
+}
+
+const movieEmbedIds = {
+    "Человек-паук: Новый день": "tt22084616", // Поставили рабочий ID вместо пустого 2026 года!
+    "1+1": "tt1675434",
+    "Интерстеллар": "tt0816692",
+    "Тёмный рыцарь": "tt0468569"
+};
+
+function setMoviePlayerSource(sourceType) {
+    const iframe = document.getElementById("movieModalIframe");
+    if (!iframe) return;
+
+    const movieId = movieEmbedIds[window.activeMovieTitle] || "tt0816692";
+    const source = String(sourceType || "alloha").toLowerCase();
+    const loading = document.getElementById("moviePlayerLoading");
+    const sourceUrls = {
+        alloha: "https://vidsrc.pm/embed/movie/" + movieId,
+        turbo: "https://2embed.skin/embed/" + movieId,
+        vibix: "https://2embed.skin/embed/" + movieId
+    };
+
+    if (moviePlayerLoadTimer) window.clearTimeout(moviePlayerLoadTimer);
+    if (loading) {
+        loading.textContent = "Загрузка плеера...";
+        loading.classList.remove("is-hidden");
     }
-    if (moviePlayerScreen) moviePlayerScreen.classList.remove("is-hidden");
-    if (details.videoUrl && moviePlayerVideo) {
-        moviePlayerVideo.src = details.videoUrl;
-        moviePlayerVideo.autoplay = true;
-        moviePlayerVideo.preload = "auto";
-        moviePlayerVideo.classList.add("is-ready");
-        if (moviePlayerScreen) moviePlayerScreen.classList.add("is-hidden");
-        moviePlayerVideo.muted = true;
-        moviePlayerVideo.onloadedmetadata = function () {
-            moviePlayerVideo.play().catch(function () {
-                moviePlayerVideo.controls = true;
-            });
-        };
-        moviePlayerVideo.onerror = function () {
-            moviePlayerVideo.classList.remove("is-ready");
-            if (moviePlayerScreen) {
-                moviePlayerScreen.classList.remove("is-hidden");
-                const message = moviePlayerScreen.querySelector("span");
-                if (message) message.textContent = "Не удалось загрузить видео. Проверьте, что файл находится в папке videos.";
-            }
-        };
-    }
+    iframe.onload = function () {
+        if (moviePlayerLoadTimer) window.clearTimeout(moviePlayerLoadTimer);
+        if (loading) loading.classList.add("is-hidden");
+    };
+    iframe.src = sourceUrls[source] || sourceUrls.alloha;
+
+    moviePlayerLoadTimer = window.setTimeout(function () {
+        if (source !== "vibix") {
+            setMoviePlayerSource("vibix");
+            return;
+        }
+        if (loading) {
+            loading.textContent = "Источник видео временно недоступен. Выберите другой источник.";
+            loading.classList.remove("is-hidden");
+        }
+    }, 12000);
+
+    document.querySelectorAll("#moviePlayerModal .source-tab").forEach(function (tab) {
+        tab.classList.toggle("active", tab.textContent.trim().toLowerCase() === source);
+    });
 }
 
 function closeMoviePlayer() {
@@ -797,6 +1025,13 @@ function closeMoviePlayer() {
     moviePlayerModal.classList.add("hidden");
     moviePlayerModal.setAttribute("aria-hidden", "true");
     if (moviePlayerVideo) moviePlayerVideo.pause();
+    const iframe = document.getElementById("movieModalIframe");
+    if (moviePlayerLoadTimer) window.clearTimeout(moviePlayerLoadTimer);
+    if (iframe) {
+        iframe.onload = null;
+        iframe.src = "";
+    }
+    syncFooterVisibility();
     document.body.style.overflow = "";
 }
 
@@ -809,20 +1044,23 @@ function leaveRoomSocket() {
         roomParticipantsTimer = null;
     }
     roomParticipants = [];
+    isRoomHost = false;
+    roomVideoLoaded = false;
+    roomPlaybackSeconds = 0;
+    roomPlaybackRunning = false;
+    if (roomPlaybackTimer) {
+        clearInterval(roomPlaybackTimer);
+        roomPlaybackTimer = null;
+    }
 }
 
-// =====================================================
-// MAIN BUTTONS
-// =====================================================
 
-// Кнопка просмотра открывает плеер выбранного фильма напрямую.
 if (createRoomHero) {
     createRoomHero.addEventListener("click", function () {
         openMoviePlayer(activeFeaturedTitle);
     });
 }
 
-// "Подробнее" → открыть страницу фильма
 if (joinRoomHero) {
     joinRoomHero.addEventListener("click", function () {
         openMovieDetails(activeFeaturedTitle);
@@ -869,7 +1107,6 @@ if (catalogGrid) {
     });
 }
 
-// Quick actions
 if (quickCreate) {
     quickCreate.addEventListener("click", openRoomsPage);
 }
@@ -936,6 +1173,7 @@ if (catalogBrand) {
 renderCatalog();
 applyHomeMoviePosters();
 setupDatabaseSearch();
+syncFooterVisibility();
 
 document.addEventListener("click", function (event) {
     if (event.target.closest(".header-search, .catalog-search, .detail-search, .rooms-search, .watch-search")) return;
@@ -944,9 +1182,6 @@ document.addEventListener("click", function (event) {
     });
 });
 
-// =====================================================
-// CREATE ROOM MODAL
-// =====================================================
 
 function openRoomModal() {
     if (!roomModal) return;
@@ -990,9 +1225,6 @@ function resetRoomModal() {
     if (urlError) urlError.textContent = "";
 }
 
-// =====================================================
-// PLATFORM SELECT
-// =====================================================
 
 platforms.forEach(function (platform) {
     platform.addEventListener("click", function () {
@@ -1045,9 +1277,6 @@ if (backToPlatforms) {
     });
 }
 
-// =====================================================
-// VALIDATE & CREATE ROOM
-// =====================================================
 
 function validateVideoUrl(url) {
     try {
@@ -1162,15 +1391,18 @@ if (createRoomFinal) {
             if (roomStepReady) roomStepReady.classList.remove("hidden");
         };
 
+        ensureRoomSocket();
         if (roomSocket) {
             roomSocket.emit("room:create", roomData, function (response) {
                 if (!response || !response.ok) {
                     if (urlError) urlError.textContent = response && response.error ? response.error : "Не удалось создать комнату.";
                     return;
                 }
+                isRoomHost = true;
                 showCreatedRoom();
             });
         } else {
+            isRoomHost = true;
             showCreatedRoom();
         }
     });
@@ -1179,14 +1411,15 @@ if (createRoomFinal) {
 if (copyRoomCode) {
     copyRoomCode.addEventListener("click", async function () {
         if (!currentRoom) return;
+        const text = getRoomLink() || currentRoom;
         try {
-            await navigator.clipboard.writeText(currentRoom);
-            copyRoomCode.textContent = "Скопировано ✓";
+            await navigator.clipboard.writeText(text);
+            copyRoomCode.textContent = "Ссылка скопирована ✓";
             setTimeout(function () {
                 copyRoomCode.textContent = "Копировать";
             }, 1800);
         } catch (error) {
-            prompt("Скопируйте код комнаты:", currentRoom);
+            prompt("Скопируйте ссылку комнаты:", text);
         }
     });
 }
@@ -1209,9 +1442,6 @@ function getRoomLink() {
     return window.location.origin + window.location.pathname + "?" + params.toString();
 }
 
-// =====================================================
-// OPEN WATCH ROOM (ОБНОВЛЕННЫЙ ВАРИАНТ)
-// =====================================================
 
 function openWatchRoom() {
     if (!watchPage) {
@@ -1227,6 +1457,12 @@ function openWatchRoom() {
 
     watchPage.classList.remove("hidden");
     document.body.style.overflow = "hidden";
+    // Сразу убрать всё, что может глушить тапы на мобиле
+    window.setTimeout(function () {
+        hideVibePlaceholder();
+        setGuestPlayerInteractive(true);
+        document.querySelectorAll("#vibeGuestBlock").forEach(function (el) { el.remove(); });
+    }, 0);
 
     const playerSection = watchPage.querySelector(".player-section");
     if (playerSection) {
@@ -1239,7 +1475,6 @@ function openWatchRoom() {
 
     if (watchRoomCode) watchRoomCode.textContent = currentRoom;
 
-    // АВТО-ЗАЩИТА ПЛАТФОРМЫ: Если в комнате есть ссылка на VK, жестко фиксируем платформу
     if (typeof currentVideoUrl !== 'undefined' && currentVideoUrl && (currentVideoUrl.includes("vk.com") || currentVideoUrl.includes("vkvideo.ru"))) {
         selectedPlatform = "vk";
     }
@@ -1249,15 +1484,117 @@ function openWatchRoom() {
 
     document.title = "VIBE — " + (currentRoomName || "Комната");
     addSystemMessage("Вы вошли в комнату.");
+
+    // Подтянуть platform/video из URL (главный путь для гостя по ссылке)
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("room")) {
+            currentRoom = params.get("room").trim().toUpperCase();
+        }
+        if (params.get("video")) {
+            const p = params.get("platform") || selectedPlatform || detectPlatformFromUrl(params.get("video"));
+            selectedPlatform = p || selectedPlatform;
+            currentVideoUrl = normalizeVideoSource(selectedPlatform || detectPlatformFromUrl(params.get("video")), params.get("video"));
+            if (!selectedPlatform) selectedPlatform = detectPlatformFromUrl(currentVideoUrl);
+            currentRoomName = params.get("name") || currentRoomName || "Вечер кино";
+        }
+    } catch (e) {
+        console.warn("VIBE URL parse:", e);
+    }
+
+    if (!selectedPlatform && currentVideoUrl) {
+        selectedPlatform = detectPlatformFromUrl(currentVideoUrl);
+    }
+
+    if (watchTitle) watchTitle.textContent = currentRoomName || "Вечер кино";
+    if (watchPlatform) watchPlatform.textContent = getPlatformName(selectedPlatform) || selectedPlatform || "…";
+
+    ensureRoomSocket();
     startRoomChannel();
 
-    // Данные комнаты приходят из room:join; локальная ссылка нужна только до ответа сервера.
-    loadRoomVideo();
+    if (currentVideoUrl) {
+        const key = selectedPlatform + "|" + currentVideoUrl;
+        if (roomLastLoadedUrl !== key) {
+            roomVideoLoaded = false;
+        }
+        // Сразу грузим плеер — без вечной заглушки «Загрузка…»
+        loadRoomVideo();
+    } else {
+        window.setTimeout(function () {
+            if (!currentVideoUrl) {
+                showVideoError("Нет ссылки на видео. Попросите хоста нажать «Поделиться комнатой».");
+            }
+        }, 6000);
+    }
+}
+
+
+function detectPlatformFromUrl(url) {
+    const value = String(url || "").toLowerCase();
+    if (!value) return "";
+    if (value.includes("youtube.com") || value.includes("youtu.be")) return "youtube";
+    if (value.includes("rutube.ru")) return "rutube";
+    if (value.includes("vk.com") || value.includes("vkvideo.ru")) return "vk";
+    return "";
 }
 
 function getRutubeVideoId(url) {
-    const match = String(url).match(/(?:video|play\/embed)\/([a-z0-9-]+)/i);
-    return match ? match[1] : "";
+    // KinoParty: только 32 hex, video / video/private / play/embed
+    const value = String(url || "").trim();
+    if (!value) return "";
+    let match = value.match(/rutube\.ru\/(?:video(?:\/private)?|play\/embed)\/([0-9a-f]{32})/i);
+    if (match) return match[1].toLowerCase();
+    match = value.match(/^([0-9a-f]{32})$/i);
+    if (match) return match[1].toLowerCase();
+    match = value.match(/(?:play\/embed|video(?:\/private)?)\/([0-9a-f]{32})/i);
+    if (match) return match[1].toLowerCase();
+    return "";
+}
+
+function parseVkVideoIds(url) {
+    const value = String(url || "").trim();
+    if (!value) return null;
+
+    // Уже embed: video_ext.php?oid=...&id=...
+    try {
+        if (value.includes("video_ext.php")) {
+            const parsed = new URL(value.replace("vkvideo.ru", "vk.com"));
+            const oid = parsed.searchParams.get("oid");
+            const id = parsed.searchParams.get("id");
+            const hash = parsed.searchParams.get("hash") || "";
+            if (oid && id) return { oid: String(oid), id: String(id), hash: String(hash) };
+        }
+    } catch (e) {}
+
+    // z=video-123_456 или z=clip-123_456
+    try {
+        const parsed = new URL(value);
+        const z = parsed.searchParams.get("z") || "";
+        const zMatch = z.match(/(?:video|clip)(-?\d+)_(\d+)/i);
+        if (zMatch) {
+            return {
+                oid: zMatch[1],
+                id: zMatch[2],
+                hash: parsed.searchParams.get("hash") || ""
+            };
+        }
+        const hash = parsed.searchParams.get("hash") || "";
+        const pathMatch = (parsed.pathname + parsed.search + parsed.hash).match(/(?:video|clip)(-?\d+)_(\d+)/i);
+        if (pathMatch) {
+            return { oid: pathMatch[1], id: pathMatch[2], hash: hash };
+        }
+    } catch (e) {}
+
+    // Прямой вид: video-123_456 / clip123_456
+    const match = value.match(/(?:video|clip)(-?\d+)_(\d+)/i);
+    if (match) {
+        let hash = "";
+        try {
+            hash = new URL(value).searchParams.get("hash") || "";
+        } catch (e) {}
+        return { oid: match[1], id: match[2], hash: hash };
+    }
+    return null;
 }
 
 function normalizeVideoSource(platform, url) {
@@ -1271,26 +1608,28 @@ function normalizeVideoSource(platform, url) {
         const videoId = getRutubeVideoId(value);
         return videoId ? "https://rutube.ru/video/" + videoId + "/" : value;
     }
+    if (platform === "vk") {
+        const ids = parseVkVideoIds(value);
+        if (ids) {
+            // Канонический короткий вид — на сервер и в localStorage
+            let canonical = "https://vk.com/video" + ids.oid + "_" + ids.id;
+            if (ids.hash) canonical += "?hash=" + encodeURIComponent(ids.hash);
+            return canonical;
+        }
+        return value.replace("https://vkvideo.ru", "https://vk.com");
+    }
     return value.replace("https://vkvideo.ru", "https://vk.com");
 }
 
 function getVkVideoEmbedUrl(url) {
-    const value = String(url).trim();
-    if (value.includes("video_ext.php")) {
-        let cleanUrl = value.replace("vkvideo.ru/video_ext.php", "vk.com/video_ext.php");
-        return cleanUrl.includes("js_api=") ? cleanUrl : cleanUrl + (cleanUrl.includes("?") ? "&js_api=1" : "?js_api=1");
-    }
-
-    const match = value.match(/(?:video|clip)(-?\d+)_(\d+)/i);
-    if (!match) return "";
-
-    let embedUrl = "https://vk.com/video_ext.php?oid=" + match[1] + "&id=" + match[2] + "&hd=2&js_api=1";
-    try {
-        const parsed = new URL(value);
-        const hash = parsed.searchParams.get("hash");
-        if (hash) embedUrl += "&hash=" + encodeURIComponent(hash);
-    } catch (error) {
-        // Ссылка уже проверена валидатором домена.
+    const ids = parseVkVideoIds(url);
+    if (!ids) return "";
+    // KinoParty: video_ext.php?oid=&id=&hd=2&js_api=1
+    let embedUrl = "https://vk.com/video_ext.php?oid=" + encodeURIComponent(ids.oid)
+        + "&id=" + encodeURIComponent(ids.id)
+        + "&hd=2&js_api=1";
+    if (ids.hash) {
+        embedUrl += "&hash=" + encodeURIComponent(ids.hash);
     }
     return embedUrl;
 }
@@ -1305,13 +1644,45 @@ function loadRoomVideo() {
         showVideoError("Не удалось определить видео.");
         return;
     }
-
+    // Не перезагружаем тот же ролик — на телефоне это даёт чёрный экран
+    const loadKey = selectedPlatform + "|" + currentVideoUrl;
+    if (roomVideoLoaded && roomLastLoadedUrl === loadKey) {
+        const existing = getPlayerIframe();
+        if (existing && existing.src && existing.src.indexOf("http") === 0) {
+            roomIframe = existing;
+            existing.classList.remove("hidden");
+            existing.style.setProperty("display", "block", "important");
+            existing.style.setProperty("visibility", "visible", "important");
+            existing.style.setProperty("opacity", "1", "important");
+            existing.style.setProperty("z-index", "5", "important");
+            hideVibePlaceholder();
+            return;
+        }
+        // src пустой — грузим заново
+        roomVideoLoaded = false;
+    }
+    roomVideoLoaded = true;
+    roomLastLoadedUrl = loadKey;
+    roomPlayerReadyAt = 0;
+    const prevIframe = getPlayerIframe();
+    if (prevIframe) delete prevIframe.dataset.vibePlayBootstrapped;
+    roomIframe = null;
+    roomVkPlayer = null;
     roomRutubeReady = false;
     roomRutubeLastTime = 0;
+    resetRoomPlayerCtl();
 
-    // ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ДЛЯ МОБИЛЬНЫХ И ГОСТЕЙ: спасает от сброса selectedPlatform
+    if (!selectedPlatform) {
+        selectedPlatform = detectPlatformFromUrl(currentVideoUrl);
+    }
     if (currentVideoUrl.includes("vk.com") || currentVideoUrl.includes("vkvideo.ru")) {
         selectedPlatform = "vk";
+    }
+    if (currentVideoUrl.includes("rutube.ru")) {
+        selectedPlatform = "rutube";
+    }
+    if (currentVideoUrl.includes("youtube.com") || currentVideoUrl.includes("youtu.be")) {
+        selectedPlatform = "youtube";
     }
 
     if (videoSourceBadge) {
@@ -1319,18 +1690,30 @@ function loadRoomVideo() {
         videoSourceBadge.classList.remove("hidden");
     }
 
-    placeholder.innerHTML = "";
-    placeholder.style.position = "relative";
-    placeholder.style.overflow = "hidden";
-
-    // Если это VK — сразу уходим в плеер VK
     if (selectedPlatform === "vk") {
         mountVkPlayer(placeholder);
         return;
     }
 
-    const iframe = document.createElement("iframe");
+    const iframe = getPlayerIframe() || document.createElement("iframe");
     const origin = encodeURIComponent(window.location.origin);
+
+    hideVibePlaceholder();
+    if (moviePlayerLoadTimer) window.clearTimeout(moviePlayerLoadTimer);
+    // На ПК иногда load-событие iframe не приходит — принудительно показываем
+    function forceShowPlayer() {
+        const fr = getPlayerIframe() || roomIframe;
+        if (!fr) return;
+        fr.classList.remove("hidden");
+        fr.style.setProperty("display", "block", "important");
+        fr.style.setProperty("visibility", "visible", "important");
+        fr.style.setProperty("opacity", "1", "important");
+        fr.style.setProperty("z-index", "5", "important");
+        fr.style.setProperty("pointer-events", "auto", "important");
+        hideVibePlaceholder();
+    }
+    moviePlayerLoadTimer = window.setTimeout(forceShowPlayer, 1500);
+    window.setTimeout(forceShowPlayer, 4000);
 
     if (selectedPlatform === "youtube") {
         const youtubeId = getYouTubeVideoId(currentVideoUrl);
@@ -1338,112 +1721,307 @@ function loadRoomVideo() {
             showVideoError("Не удалось определить YouTube-видео.");
             return;
         }
-        iframe.src = "https://www.youtube.com/embed/" + encodeURIComponent(youtubeId) + "?autoplay=0&controls=1&rel=0&playsinline=1&enablejsapi=1&origin=" + origin;
+        iframe.src = "https://www.youtube.com/embed/" + encodeURIComponent(youtubeId) + "?autoplay=1&mute=1&controls=1&rel=0&playsinline=1&enablejsapi=1&origin=" + origin;
     } else if (selectedPlatform === "rutube") {
         const rutubeId = getRutubeVideoId(currentVideoUrl);
-        iframe.src = rutubeId ? "https://rutube.ru/play/embed/" + rutubeId + "?api=1" : currentVideoUrl;
+        // mobile: mute+autoplay+playsinline — иначе часто 1 кадр и чёрный экран
+        iframe.src = rutubeId
+            ? ("https://rutube.ru/play/embed/" + rutubeId + "?js_api=1&autoplay=1&mute=1&playsInline=1")
+            : currentVideoUrl;
     } else {
         iframe.src = currentVideoUrl;
     }
 
-
+    iframe.classList.remove("hidden");
     iframe.title = "VIBE — " + getPlatformName(selectedPlatform);
     iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
     iframe.allowFullscreen = true;
     iframe.loading = "eager";
     iframe.referrerPolicy = "strict-origin-when-cross-origin";
-    iframe.style.cssText = "position:absolute;left:0;top:0;z-index:2;width:100%;height:100%;border:0;display:block;background:#000;";
+    iframe.style.cssText = "position:absolute;inset:0;z-index:5;width:100%;height:100%;border:0;display:block;background:#000;pointer-events:auto;";
 
-    placeholder.appendChild(iframe);
+    if (!iframe.parentElement && placeholder) {
+        const root = placeholder.closest(".video-player") || placeholder;
+        root.appendChild(iframe);
+    }
+
     roomIframe = iframe;
-    const playerControls = document.querySelector("#watchPage .player-controls");
-    if (playerControls) playerControls.classList.add("is-external");
+    // Скрываем весь UI VIBE поверх плеера — только нативный YouTube/Rutube/VK
+    document.querySelectorAll("#watchPage .player-controls, #vibeStartOverlay, #playButton").forEach(function (el) {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+    });
 
     iframe.addEventListener("load", function () {
+        iframe.dataset.vibeLoaded = "1";
+        hideVibePlaceholder();
+        iframe.classList.remove("hidden");
+        iframe.style.cssText = "position:absolute;inset:0;z-index:5;width:100%;height:100%;border:0;display:block;background:#000;pointer-events:auto;";
+        roomPlayerReadyAt = Date.now();
         listenToYouTubePlayer();
         listenToRutubePlayer();
-        if (selectedPlatform === "rutube") roomRutubeReady = true;
+        if (selectedPlatform === "rutube") {
+            roomRutubeReady = true;
+            // js_api: запросить состояние
+            rutubePost("player:getCurrentTime", {});
+            rutubePost("player:getDuration", {});
+        }
+        setGuestPlayerInteractive(true);
+        // Мягкий sync только UI — без seek/reload
         if (roomPendingSync) {
-            applyRemotePlayback(roomPendingSync);
+            const pending = roomPendingSync;
             roomPendingSync = null;
+            roomPlaybackSeconds = Number(pending.position || pending.seconds) || 0;
+            roomPlaybackRunning = Boolean(pending.playing);
+            // postMessage play/pause один раз, без смены src
+            window.setTimeout(function () {
+                if (selectedPlatform === "youtube") {
+                    sendYouTubeCommand(pending.playing ? "playVideo" : "pauseVideo");
+                    if (pending.position) sendYouTubeCommand("seekTo", [Number(pending.position) || 0, true]);
+                } else if (selectedPlatform === "rutube") {
+                    sendRutubeCommand(pending.playing ? "player:play" : "player:pause");
+                }
+            }, isMobileVibe ? 800 : 300);
         }
     }, { once: true });
 }
 
 function sendRutubeCommand(command, data) {
-    if (!roomIframe || selectedPlatform !== "rutube" || !roomIframe.contentWindow) return;
-    roomIframe.contentWindow.postMessage({
-        type: command,
-        data: data || {}
-    }, "https://rutube.ru");
+    if (selectedPlatform !== "rutube") return;
+    rutubePost(command, data || {});
+}
+
+function rutubeForcePause() {
+    if (selectedPlatform !== "rutube") return;
+    roomForcePausedUntil = Date.now() + 2000;
+    rutubeCtlPause();
+}
+
+function rutubeForcePlay(seconds) {
+    if (selectedPlatform !== "rutube") return;
+    roomForcePausedUntil = 0;
+    const t = Math.max(0, Number(seconds) || roomPlaybackSeconds || 0);
+    rutubeCtlSeek(t);
+    rutubeCtlPlay();
+}
+
+function setGuestPlayerInteractive(canControl) {
+    const iframe = getPlayerIframe && getPlayerIframe();
+    if (iframe) {
+        iframe.style.setProperty("pointer-events", "auto", "important");
+        iframe.style.setProperty("z-index", "5", "important");
+    }
+    const block = document.getElementById("vibeGuestBlock");
+    if (block) block.remove();
+    const startBtn = document.getElementById("vibeStartOverlay");
+    if (startBtn) startBtn.remove();
+    document.querySelectorAll("#watchPage .player-controls").forEach(function (el) {
+        el.style.setProperty("display", "none", "important");
+    });
+    hideVibePlaceholder();
 }
 
 function listenToRutubePlayer() {
-    if (!roomIframe || selectedPlatform !== "rutube" || !roomIframe.contentWindow) return;
-    roomRutubeReady = false;
-    sendRutubeCommand("player:ready");
-    sendRutubeCommand("player:getDuration");
-    sendRutubeCommand("player:getCurrentTime");
+    if (selectedPlatform !== "rutube") return;
+    // как в production: ждём player:ready / currentTime; fallback mediaReady
+    rutubePost("player:getDuration", {});
+    rutubePost("player:getCurrentTime", {});
+    window.setTimeout(function () {
+        if (selectedPlatform === "rutube" && !roomPlayerCtl.mediaReady) {
+            roomPlayerCtl.mediaReady = true;
+            roomRutubeReady = true;
+            if (roomPlayerCtl.pendingSeek != null) {
+                rutubePost("player:setCurrentTime", { time: roomPlayerCtl.pendingSeek });
+            }
+            if (roomPendingSync) {
+                const pending = roomPendingSync;
+                roomPendingSync = null;
+                applyRemotePlayback(pending, false);
+            }
+        }
+    }, 2000);
+}
+
+/** VK sync без VideoPlayer API: пересобираем embed URL */
+let vkEmbedReloadTimer = null;
+function syncVkViaEmbedReload(seconds, playing) {
+    // KinoParty-style: НЕ перезагружаем embed для синка — только VK.VideoPlayer API
+    return;
+    if (!roomIframe || selectedPlatform !== "vk") return;
+    if (isMobileVibe) return;
+    const ids = parseVkVideoIds(currentVideoUrl);
+    if (!ids) return;
+    let src = "https://vk.com/video_ext.php?oid=" + encodeURIComponent(ids.oid)
+        + "&id=" + encodeURIComponent(ids.id)
+        + "&hd=2&js_api=1"
+        + "&t=" + Math.max(0, Math.floor(seconds)) + "s";
+    if (ids.hash) src += "&hash=" + encodeURIComponent(ids.hash);
+    if (playing) src += "&autoplay=1";
+    src += "&muted=0";
+    // debounce — не дёргать iframe каждые 100мс
+    if (vkEmbedReloadTimer) window.clearTimeout(vkEmbedReloadTimer);
+    vkEmbedReloadTimer = window.setTimeout(function () {
+        if (!roomIframe) return;
+        if (roomIframe.src !== src) {
+            roomIframe.src = src;
+        }
+        hideVibePlaceholder();
+        roomIframe.classList.remove("hidden");
+        roomIframe.style.display = "block";
+    }, 200);
+}
+
+function hideVibePlaceholder() {
+    const placeholder = document.getElementById("vibePlaceholder") || document.querySelector(".video-placeholder");
+    if (!placeholder) return;
+    placeholder.style.setProperty("display", "none", "important");
+    placeholder.style.setProperty("visibility", "hidden", "important");
+    placeholder.style.setProperty("pointer-events", "none", "important");
+    placeholder.style.setProperty("z-index", "0", "important");
+    placeholder.style.setProperty("opacity", "0", "important");
+    placeholder.classList.add("is-hidden");
+    // на всякий случай — любые абсолютные оверлеи кроме iframe/кнопок
+    const root = placeholder.closest(".video-player") || document.querySelector("#watchPage .video-player");
+    if (root) {
+        root.querySelectorAll(".video-placeholder, #vibeGuestBlock").forEach(function (el) {
+            el.style.setProperty("pointer-events", "none", "important");
+            el.style.setProperty("display", "none", "important");
+        });
+    }
+}
+
+function showVibePlaceholder() {
+    const placeholder = document.getElementById("vibePlaceholder") || document.querySelector(".video-placeholder");
+    if (!placeholder) return;
+    placeholder.style.removeProperty("display");
+    placeholder.style.removeProperty("visibility");
+    placeholder.style.removeProperty("pointer-events");
+    placeholder.style.setProperty("z-index", "2", "important");
+    placeholder.classList.remove("is-hidden");
+}
+
+function getPlayerIframe() {
+    let iframe = document.getElementById("vibePlayerIframe");
+    if (!iframe) {
+        iframe = document.querySelector("#watchPage .video-player iframe");
+    }
+    return iframe;
 }
 
 function mountVkPlayer(placeholder) {
     const vkEmbedUrl = getVkVideoEmbedUrl(currentVideoUrl);
-    if (!vkEmbedUrl) {
-        showVideoError("Не удалось определить VK Видео. Нужна ссылка вида vkvideo.ru/video-123_456.");
+    if (!vkEmbedUrl || vkEmbedUrl.indexOf("video_ext.php") === -1) {
+        showVideoError("Не удалось определить VK Видео. Вставьте ссылку вида https://vk.com/video-123_456");
         return;
     }
 
-    // Этот блок убирает серую полосу и выравнивает видео ровно по границам страницы
-    placeholder.innerHTML = "";
-    placeholder.style.position = "relative";
-    placeholder.style.width = "100%";
-    placeholder.style.height = "0";
-    placeholder.style.paddingTop = "56.25%"; 
-    placeholder.style.background = "#000";
-    placeholder.style.overflow = "hidden";
+    const iframe = getPlayerIframe();
+    if (!iframe) {
+        showVideoError("Плеер не найден на странице.");
+        return;
+    }
 
-    const iframe = document.createElement("iframe");
-    iframe.src = vkEmbedUrl;
-    iframe.title = "VIBE — VK Видео";
-    iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
-    iframe.allowFullscreen = true;
-    iframe.loading = "eager";
-    iframe.referrerPolicy = "strict-origin-when-cross-origin";
-    
-    // Растягиваем само видео на 100% ширины и высоты
-    iframe.style.cssText = "position:absolute;left:0;top:0;z-index:999;width:100%;height:100%;border:0;display:block;background:transparent;";
-    
-    placeholder.appendChild(iframe);
+    // Заглушка НЕ должна перекрывать видео (это была причина чёрного экрана)
+    hideVibePlaceholder();
+
+    // Чистим возможные старые динамические iframe внутри placeholder
+    if (placeholder) {
+        placeholder.querySelectorAll("iframe").forEach(function (node) {
+            node.remove();
+        });
+    }
+
+    let src = vkEmbedUrl;
+    // Первый показ: autoplay muted (политика браузера). Синк дальше только через API.
+    if (src.indexOf("autoplay=") === -1) src += "&autoplay=1";
+    if (src.indexOf("muted=") === -1) src += "&muted=1";
+
+    iframe.classList.remove("hidden");
+    iframe.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0;z-index:5;display:block;background:#000;";
+    iframe.setAttribute("allow", "autoplay; encrypted-media; fullscreen; picture-in-picture");
+    iframe.setAttribute("allowfullscreen", "true");
+    iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+
     roomIframe = iframe;
+    roomVkPlayer = null;
 
-    if (window.VK && typeof window.VK.VideoPlayer === "function") {
-        const player = VK.VideoPlayer(iframe);
-        roomVkPlayer = player;
-        if (player && typeof player.on === "function") {
-            player.on("timeupdate", function (event) {
-                const seconds = typeof event === "number" ? event : Number(event && (event.time || event.currentTime));
-                if (!Number.isNaN(seconds)) {
-                    roomPlaybackSeconds = seconds;
-                    renderPlaybackTime();
-                }
-            });
-            player.on("play", function () {
-                setPlaybackState(roomPlaybackSeconds, true, !roomApplyingRemoteState);
-            });
-            player.on("pause", function () {
-                setPlaybackState(roomPlaybackSeconds, false, !roomApplyingRemoteState);
-            });
+    // Перезагрузка src только если изменился
+    if (iframe.src !== src) {
+        iframe.src = src;
+    }
+
+    function bindVkApi() {
+        if (!window.VK || typeof window.VK.VideoPlayer !== "function") {
+            console.warn("VIBE: VK.VideoPlayer API нет — управление через кнопки VIBE ограничено.");
+            if (roomPendingSync) {
+                const pending = roomPendingSync;
+                roomPendingSync = null;
+                applyRemotePlayback(pending);
+            }
+            return;
         }
-        if (roomPendingSync) {
-            const pendingSync = roomPendingSync;
-            roomPendingSync = null;
-            applyRemotePlayback(pendingSync);
+        try {
+            const player = window.VK.VideoPlayer(iframe);
+            roomVkPlayer = player;
+            if (player && typeof player.on === "function") {
+                player.on("inited", function () {
+                    if (roomPendingSync) {
+                        const pending = roomPendingSync;
+                        roomPendingSync = null;
+                        applyRemotePlayback(pending);
+                    }
+                });
+                player.on("timeupdate", function (event) {
+                    const seconds = typeof event === "number" ? event : Number(event && (event.time || event.currentTime));
+                    if (!Number.isNaN(seconds)) {
+                        roomPlaybackSeconds = seconds;
+                        renderPlaybackTime();
+                    }
+                });
+                player.on("play", function () {
+                    setPlaybackState(roomPlaybackSeconds, true, isRoomHost && !roomApplyingRemoteState);
+                });
+                player.on("pause", function () {
+                    setPlaybackState(roomPlaybackSeconds, false, isRoomHost && !roomApplyingRemoteState);
+                });
+                player.on("ended", function () {
+                    setPlaybackState(roomPlaybackSeconds, false, isRoomHost && !roomApplyingRemoteState);
+                });
+            }
+            if (roomPendingSync) {
+                const pending = roomPendingSync;
+                roomPendingSync = null;
+                window.setTimeout(function () {
+                    applyRemotePlayback(pending);
+                }, 500);
+            }
+        } catch (err) {
+            console.warn("VIBE VK bind error:", err);
         }
-    } else {
-        console.warn("VIBE: VK VideoPlayer API не загрузился.");
+    }
+
+    iframe.addEventListener("load", function onVkLoad() {
+        hideVibePlaceholder();
+        window.setTimeout(bindVkApi, 400);
+    }, { once: true });
+
+    // На случай если load уже произошёл
+    window.setTimeout(function () {
+        hideVibePlaceholder();
+        bindVkApi();
+    }, 800);
+
+    if (!window.VK || typeof window.VK.VideoPlayer !== "function") {
+        let tries = 0;
+        const waitVk = window.setInterval(function () {
+            tries += 1;
+            if ((window.VK && typeof window.VK.VideoPlayer === "function") || tries > 25) {
+                window.clearInterval(waitVk);
+                bindVkApi();
+            }
+        }, 200);
     }
 }
-
 
 function formatPlaybackTime(seconds) {
     const totalSeconds = Math.max(0, Math.floor(seconds));
@@ -1472,13 +2050,16 @@ function setPlaybackState(seconds, isPlaying, shouldBroadcast) {
 
     if (roomPlaybackTimer) clearInterval(roomPlaybackTimer);
     if (roomPlaybackRunning) {
+        // На телефоне реже обновляем UI — меньше лагов
+        const tickMs = isMobileVibe ? 1000 : 250;
+        const tickSec = isMobileVibe ? 1 : 0.25;
         roomPlaybackTimer = setInterval(function () {
-            roomPlaybackSeconds += 0.25;
+            roomPlaybackSeconds += tickSec;
             renderPlaybackTime();
-        }, 250);
+        }, tickMs);
     }
 
-    if (shouldBroadcast) {
+    if (shouldBroadcast && isRoomHost) {
         const playback = {
             position: roomPlaybackSeconds,
             playing: roomPlaybackRunning
@@ -1495,39 +2076,118 @@ function setPlaybackState(seconds, isPlaying, shouldBroadcast) {
     }
 }
 
-function applyRemotePlayback(payload) {
+function applyRemotePlayback(payload, force) {
     if (!payload) return;
+
     const elapsed = payload.playing && payload.updatedAt
         ? Math.max(0, (Date.now() - Number(payload.updatedAt)) / 1000)
         : 0;
     const seconds = (Number(payload.position ?? payload.seconds) || 0) + elapsed;
+    const wantPlaying = Boolean(payload.playing);
+    const drift = Math.abs(seconds - roomPlaybackSeconds);
+    const playingChanged = lastRemotePlayingState === null || lastRemotePlayingState !== wantPlaying;
+
+    const driftThreshold = isMobileVibe ? 8 : 1.5;
+    const minSeekInterval = isMobileVibe ? 8000 : 800;
+    const now = Date.now();
+
+    // Rutube: единый ctl (как в production) — без раннего return только UI
+    if (selectedPlatform === "rutube") {
+        lastRemotePlayingState = wantPlaying;
+        roomPlaybackSeconds = seconds;
+        roomPlaybackRunning = wantPlaying;
+        rutubeCtlApplyRemote(seconds, wantPlaying);
+        window.setTimeout(function () { roomApplyingRemoteState = false; }, 800);
+        return;
+    }
+
+    // Мягкое обновление таймера без seek
+    if (!force && !playingChanged && drift < driftThreshold) {
+        roomPlaybackSeconds = seconds;
+        roomPlaybackRunning = wantPlaying;
+        renderPlaybackTime();
+        if (playerPlay) playerPlay.textContent = wantPlaying ? "Ⅱ" : "▶";
+        return;
+    }
+
+    // Throttle тяжёлых seek на телефоне
+    if (!force && !playingChanged && (now - lastRemoteSeekAt) < minSeekInterval) {
+        roomPlaybackSeconds = seconds;
+        roomPlaybackRunning = wantPlaying;
+        renderPlaybackTime();
+        return;
+    }
+
+    lastRemoteApplyAt = now;
+    lastRemoteSeekAt = now;
+    lastRemotePlayingState = wantPlaying;
     roomApplyingRemoteState = true;
+
     const rutubeWaiting = selectedPlatform === "rutube" && !roomRutubeReady;
-    roomPendingSync = roomIframe && !rutubeWaiting ? null : { position: seconds, playing: Boolean(payload.playing) };
-    setPlaybackState(seconds, Boolean(payload.playing), false);
+    roomPendingSync = roomIframe && !rutubeWaiting ? null : { position: seconds, playing: wantPlaying };
+    setPlaybackState(seconds, wantPlaying, false);
+
     if (selectedPlatform === "youtube" && roomIframe) {
         sendYouTubeCommand("seekTo", [seconds, true]);
-        sendYouTubeCommand(payload.playing ? "playVideo" : "pauseVideo");
+        sendYouTubeCommand(wantPlaying ? "playVideo" : "pauseVideo");
     }
-    if (selectedPlatform === "vk" && roomVkPlayer) {
-        if (typeof roomVkPlayer.seek === "function") roomVkPlayer.seek(seconds);
-        if (payload.playing && typeof roomVkPlayer.play === "function") roomVkPlayer.play();
-        if (!payload.playing && typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
+
+    if (selectedPlatform === "vk") {
+        let apiOk = false;
+        if (roomVkPlayer) {
+            try {
+                if (typeof roomVkPlayer.seek === "function") {
+                    roomVkPlayer.seek(seconds);
+                    apiOk = true;
+                } else if (typeof roomVkPlayer.setCurrentTime === "function") {
+                    roomVkPlayer.setCurrentTime(seconds);
+                    apiOk = true;
+                }
+                if (wantPlaying) {
+                    if (typeof roomVkPlayer.play === "function") roomVkPlayer.play();
+                    else if (typeof roomVkPlayer.playVideo === "function") roomVkPlayer.playVideo();
+                } else {
+                    if (typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
+                    else if (typeof roomVkPlayer.pauseVideo === "function") roomVkPlayer.pauseVideo();
+                }
+            } catch (e) {
+                apiOk = false;
+            }
+        }
+        // На телефоне reload embed только при play/pause или большом скачке (>8с)
+        if (!apiOk) {
+            const bigJump = drift > 8;
+            if (!isMobileVibe || playingChanged || bigJump || force) {
+                syncVkViaEmbedReload(seconds, wantPlaying);
+            }
+        }
     }
-    if (selectedPlatform === "rutube" && roomIframe && roomRutubeReady) {
-        sendRutubeCommand("player:setCurrentTime", { time: seconds });
-        sendRutubeCommand(payload.playing ? "player:play" : "player:pause");
+
+    if (selectedPlatform === "rutube") {
+        roomRutubeReady = true;
+        // Production-style: только ctl, без iframe.src
+        rutubeCtlApplyRemote(seconds, wantPlaying);
     }
+
     window.setTimeout(function () {
         roomApplyingRemoteState = false;
-    }, 1200);
+    }, selectedPlatform === "rutube" ? (isMobileVibe ? 800 : 400) : (isMobileVibe ? 1500 : 1200));
 }
 
 function reconcileRemotePlayback(payload) {
-    if (!payload || !payload.playing || !roomPlaybackRunning) return;
-    const expected = (Number(payload.position) || 0) + Math.max(0, (Date.now() - Number(payload.updatedAt || Date.now())) / 1000);
-    if (Math.abs(expected - roomPlaybackSeconds) > 1.5) {
-        applyRemotePlayback(payload);
+    // Хост — источник истины
+    if (isRoomHost) return;
+    if (!payload) return;
+
+    const elapsed = payload.playing && payload.updatedAt
+        ? Math.max(0, (Date.now() - Number(payload.updatedAt)) / 1000)
+        : 0;
+    const expected = (Number(payload.position) || 0) + elapsed;
+    const drift = Math.abs(expected - roomPlaybackSeconds);
+    // Clock на телефоне почти игнорируем — только грубый уход
+    const clockThreshold = isMobileVibe ? (selectedPlatform === "rutube" ? 15 : 5) : 1.5;
+    if (drift > clockThreshold) {
+        applyRemotePlayback(payload, false);
     }
 }
 
@@ -1550,7 +2210,10 @@ function listenToYouTubePlayer() {
 }
 
 window.addEventListener("message", function (event) {
-    if (!roomIframe || event.source !== roomIframe.contentWindow) return;
+    const fromOurFrame = roomIframe && event.source === roomIframe.contentWindow;
+    const fromRutube = isRutubeMessageOrigin(event.origin);
+    const fromYoutube = typeof event.origin === "string" && event.origin.indexOf("youtube.com") !== -1;
+    if (!fromOurFrame && !fromRutube && !fromYoutube) return;
 
     let payload = event.data;
     if (typeof payload === "string") {
@@ -1560,42 +2223,16 @@ window.addEventListener("message", function (event) {
             return;
         }
     }
+    if (!payload || typeof payload !== "object") return;
 
-    if (selectedPlatform === "rutube") {
-        const type = String(payload && (payload.type || payload.event || ""));
-        const data = payload && payload.data;
-        const value = typeof data === "number" ? data : data && (data.time ?? data.currentTime ?? data.value);
-        const duration = data && (data.duration ?? data.totalTime);
-
-        if (type === "player:ready" || type === "ready") {
-            roomRutubeReady = true;
-            sendRutubeCommand("player:getDuration");
-            sendRutubeCommand("player:getCurrentTime");
-            if (roomPendingSync) {
-                const pendingSync = roomPendingSync;
-                roomPendingSync = null;
-                applyRemotePlayback(pendingSync);
-            }
-        }
-        if (typeof duration === "number" && playerProgress) {
-            playerProgress.dataset.duration = String(duration);
-        }
-        if (typeof value === "number") {
-            const previousTime = roomRutubeLastTime;
-            const jumped = Math.abs(value - previousTime) > 1.5;
-            roomPlaybackSeconds = value;
-            roomRutubeLastTime = value;
-            renderPlaybackTime();
-            if ((type.includes("seek") || jumped) && !roomApplyingRemoteState) {
-                setPlaybackState(value, roomPlaybackRunning, true);
-            }
-        }
-
-        const state = String(data && (data.state || data.status) || payload.state || "").toLowerCase();
-        if (type.includes("play") || state === "playing" || state === "play") {
-            setPlaybackState(roomPlaybackSeconds, true, !roomApplyingRemoteState);
-        } else if (type.includes("pause") || state === "paused" || state === "pause" || state === "ended") {
-            setPlaybackState(roomPlaybackSeconds, false, !roomApplyingRemoteState);
+    if (selectedPlatform === "rutube" || fromRutube) {
+        roomRutubeReady = true;
+        handleRutubeMessage(payload);
+        // pending seek/play после ready
+        if (roomPendingSync && roomPlayerCtl.mediaReady) {
+            const pendingSync = roomPendingSync;
+            roomPendingSync = null;
+            applyRemotePlayback(pendingSync, false);
         }
         return;
     }
@@ -1608,20 +2245,61 @@ window.addEventListener("message", function (event) {
     if (typeof payload.info.duration === "number" && playerProgress) {
         playerProgress.dataset.duration = String(payload.info.duration);
     }
-    if (payload.info.playerState === 1) setPlaybackState(roomPlaybackSeconds, true, !roomApplyingRemoteState);
-    if (payload.info.playerState === 0 || payload.info.playerState === 2) setPlaybackState(roomPlaybackSeconds, false, !roomApplyingRemoteState);
+    if (payload.info.playerState === 1) setPlaybackState(roomPlaybackSeconds, true, isRoomHost && !roomApplyingRemoteState);
+    if (payload.info.playerState === 0 || payload.info.playerState === 2) setPlaybackState(roomPlaybackSeconds, false, isRoomHost && !roomApplyingRemoteState);
 });
 
+
+function ensureStartOverlay() {
+    // отключено — только нативный плеер платформы
+    const el = document.getElementById("vibeStartOverlay");
+    if (el) el.remove();
+}
+
 function toggleRoomPlayback() {
+    // Один в комнате или нет сокета → считаем хостом
+    const usersCount = Number(peopleCount && peopleCount.textContent) || 1;
+    if (!isRoomHost && (usersCount <= 1 || !roomSocket || !roomSocket.connected)) {
+        isRoomHost = true;
+    }
+    // Гость тоже может нажать «Смотреть» — видео стартует локально (autoplay policy),
+    // в общий канал уйдёт только если isRoomHost (см. setPlaybackState).
+
+    setGuestPlayerInteractive(true);
+    hideVibePlaceholder();
+
     const nextState = !roomPlaybackRunning;
+
     if (selectedPlatform === "youtube") {
         sendYouTubeCommand(nextState ? "playVideo" : "pauseVideo");
-    } else if (selectedPlatform === "vk" && roomVkPlayer) {
-        if (nextState && typeof roomVkPlayer.play === "function") roomVkPlayer.play();
-        if (!nextState && typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
+        if (nextState) sendYouTubeCommand("unMute");
+    } else if (selectedPlatform === "vk") {
+        let ok = false;
+        if (roomVkPlayer) {
+            try {
+                if (nextState) {
+                    if (typeof roomVkPlayer.play === "function") { roomVkPlayer.play(); ok = true; }
+                    else if (typeof roomVkPlayer.playVideo === "function") { roomVkPlayer.playVideo(); ok = true; }
+                } else {
+                    if (typeof roomVkPlayer.pause === "function") { roomVkPlayer.pause(); ok = true; }
+                    else if (typeof roomVkPlayer.pauseVideo === "function") { roomVkPlayer.pauseVideo(); ok = true; }
+                }
+            } catch (e) { ok = false; }
+        }
+        if (!ok) {
+            syncVkViaEmbedReload(roomPlaybackSeconds, nextState);
+        }
     } else if (selectedPlatform === "rutube") {
-        sendRutubeCommand(nextState ? "player:play" : "player:pause");
+        if (nextState) {
+            rutubeForcePlay(roomPlaybackSeconds);
+        } else {
+            rutubeForcePause();
+            sendRutubeCommand("player:setCurrentTime", { time: roomPlaybackSeconds });
+        }
+    } else {
+        // неизвестная платформа — пробуем клик по iframe бесполезен, просто UI
     }
+
     setPlaybackState(roomPlaybackSeconds, nextState, true);
 }
 
@@ -1633,7 +2311,7 @@ function formatRoomDuration(seconds) {
     if (hours > 0) {
         return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
     }
-    return String(minutes).padStart(2, "2") + ":" + String(remainder).padStart(2, "0");
+    return String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
 }
 
 function renderParticipantTimers() {
@@ -1671,45 +2349,115 @@ function updateRoomPeople(payload) {
 }
 
 function startRoomChannel() {
+    ensureRoomSocket();
     if (roomSocket) {
         if (!roomSocketHandlersBound) {
             roomSocket.on("room:playback", function (payload) {
                 if (payload && payload.source === roomSocket.id) return;
-                applyRemotePlayback(payload);
+                // Мобильный Rutube: никогда force (force → reload → цикл)
+                applyRemotePlayback(payload, false);
             });
             roomSocket.on("room:clock", reconcileRemotePlayback);
+            roomSocket.on("room:host", function (payload) {
+                if (!payload) return;
+                isRoomHost = payload.hostId === roomSocket.id;
+                setGuestPlayerInteractive(isRoomHost);
+                if (isRoomHost) {
+                    addSystemMessage("Вы стали хостом комнаты. Управление плеером за вами.");
+                } else {
+                    addSystemMessage("Плеером управляет хост комнаты.");
+                }
+            });
             roomSocket.on("room:users", function (payload) {
+                if (payload && payload.hostId) {
+                    isRoomHost = payload.hostId === roomSocket.id;
+                }
                 updateRoomPeople(payload);
             });
             roomSocket.on("room:chat", function (payload) {
                 if (payload && payload.username && payload.text) addChatMessage(payload.username, payload.text, true);
             });
+            roomSocket.on("room:error", function (payload) {
+                if (payload && payload.error) {
+                    console.warn("VIBE room:", payload.error);
+                }
+            });
             roomSocket.on("connect", function () {
-                if (!currentRoom || watchPage.classList.contains("hidden")) return;
+                if (!currentRoom || (watchPage && watchPage.classList.contains("hidden"))) return;
                 roomSocket.emit("room:join", { code: currentRoom }, function (response) {
-                    if (response && response.ok) {
-                        applyRemotePlayback({ position: response.room.position, playing: response.room.playing });
+                    if (!response || !response.ok || !response.room) return;
+                    isRoomHost = Boolean(response.isHost);
+                    if (response.room.platform) selectedPlatform = response.room.platform;
+                    if (response.room.videoUrl) currentVideoUrl = response.room.videoUrl;
+                    if (response.room.name) currentRoomName = response.room.name;
+                    try {
+                        localStorage.setItem("vibe_room_" + currentRoom, JSON.stringify({
+                            code: currentRoom,
+                            platform: selectedPlatform,
+                            videoUrl: currentVideoUrl,
+                            name: currentRoomName,
+                            createdAt: Date.now()
+                        }));
+                    } catch (e) {}
+                    if (watchTitle) watchTitle.textContent = currentRoomName || "Вечер кино";
+                    if (watchPlatform) watchPlatform.textContent = getPlatformName(selectedPlatform);
+                    if (currentVideoUrl) {
+                        loadRoomVideo();
                     }
+                    applyRemotePlayback({
+                        position: response.room.position,
+                        playing: response.room.playing,
+                        updatedAt: response.room.updatedAt
+                    }, !(isMobileVibe && selectedPlatform === "rutube"));
                 });
             });
             roomSocketHandlersBound = true;
         }
 
-        roomSocket.emit("room:join", { code: currentRoom }, function (response) {
+        function handleJoinResponse(response) {
             if (!response || !response.ok) {
                 showVideoError(response && response.error ? response.error : "Не удалось подключиться к комнате.");
+                if (currentVideoUrl) loadRoomVideo();
                 return;
             }
-            const room = response.room;
-            selectedPlatform = room.platform || selectedPlatform;
-            currentVideoUrl = room.videoUrl || currentVideoUrl;
-            currentRoomName = room.name || currentRoomName;
-            if (watchTitle) watchTitle.textContent = currentRoomName;
+            const room = response.room || {};
+            isRoomHost = Boolean(response.isHost) || (room.hostId && roomSocket && roomSocket.id === room.hostId);
+            if (room.platform) selectedPlatform = room.platform;
+            if (room.videoUrl) currentVideoUrl = room.videoUrl;
+            if (room.name) currentRoomName = room.name;
+
+            // Сохраняем на телефоне, чтобы повторный вход работал
+            try {
+                localStorage.setItem("vibe_room_" + currentRoom, JSON.stringify({
+                    code: currentRoom,
+                    platform: selectedPlatform,
+                    videoUrl: currentVideoUrl,
+                    name: currentRoomName,
+                    createdAt: Date.now()
+                }));
+            } catch (e) {}
+
+            if (watchTitle) watchTitle.textContent = currentRoomName || "Вечер кино";
             if (watchPlatform) watchPlatform.textContent = getPlatformName(selectedPlatform);
-            updateRoomPeople({ count: room.users || 1, participants: [] });
+            updateRoomPeople({ count: room.users || 1, participants: response.participants || [] });
+            setGuestPlayerInteractive(isRoomHost);
+
+            if (!currentVideoUrl) {
+                showVideoError("Сервер не прислал ссылку на видео. Попросите хоста поделиться полной ссылкой комнаты.");
+                return;
+            }
+
+            // Не сбрасываем roomVideoLoaded — повторный load на телефоне = чёрный экран
             loadRoomVideo();
-            applyRemotePlayback({ position: room.position, playing: room.playing });
-        });
+            roomPendingSync = {
+                position: room.position,
+                playing: room.playing,
+                updatedAt: room.updatedAt
+            };
+            // applyRemote вызовется после load iframe — без force
+        }
+
+        roomSocket.emit("room:join", { code: currentRoom }, handleJoinResponse);
         return;
     }
 
@@ -1737,6 +2485,12 @@ function startRoomChannel() {
         .on("presence", { event: "sync" }, function () {
             const state = roomChannel.presenceState();
             updateRoomPeople(Object.keys(state).length);
+            
+            // 2. Мобильный фикс для второй ветки (Supabase)
+            // Когда гость синхронизировался по базе данных, принудительно пушим ему видео
+            if (typeof currentVideoUrl !== "undefined" && currentVideoUrl) {
+                убратьЗаглушкуИВключитьПлеер(currentVideoUrl);
+            }
         })
         .subscribe(async function (status) {
             if (status !== "SUBSCRIBED") return;
@@ -1745,7 +2499,25 @@ function startRoomChannel() {
         });
 }
 
+// ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ УНИЧТОЖЕНИЯ ЗАГЛУШКИ VIBE НА СМАРТФОНАХ
+function убратьЗаглушкуИВключитьПлеер(url) {
+    hideVibePlaceholder();
+    const iframe = getPlayerIframe();
+    if (iframe && iframe.src) {
+        iframe.classList.remove("hidden");
+        iframe.style.setProperty("display", "block", "important");
+        iframe.style.setProperty("z-index", "5", "important");
+    }
+}
+
 function showVideoMessage(text) {
+    const iframe = getPlayerIframe && getPlayerIframe();
+    // Если iframe уже с видео — не перекрываем заглушкой
+    if (iframe && iframe.src && iframe.src.indexOf("http") === 0) {
+        console.log("VIBE:", text);
+        hideVibePlaceholder();
+        return;
+    }
     const placeholder = document.querySelector(".video-placeholder");
     if (!placeholder) return;
 
@@ -1765,15 +2537,16 @@ function showVideoMessage(text) {
     placeholder.appendChild(logo);
     placeholder.appendChild(title);
     placeholder.appendChild(message);
+    // Показать только пока нет iframe
+    placeholder.style.setProperty("display", "flex", "important");
+    placeholder.style.setProperty("z-index", "1", "important");
+    placeholder.style.setProperty("pointer-events", "none", "important");
 }
 
 function showVideoError(text) {
     showVideoMessage(text);
 }
 
-// =====================================================
-// JOIN ROOM
-// =====================================================
 
 function askJoinRoom() {
     const code = prompt("Введите код комнаты VIBE:");
@@ -1782,27 +2555,26 @@ function askJoinRoom() {
     const cleanCode = code.trim().toUpperCase();
     const savedRoom = localStorage.getItem("vibe_room_" + cleanCode);
 
-    if (!savedRoom) {
-        alert("Комната " + cleanCode + " не найдена.");
-        return;
+    currentRoom = cleanCode;
+    currentVideoUrl = "";
+    selectedPlatform = "";
+    currentRoomName = "Вечер кино";
+
+    if (savedRoom) {
+        try {
+            const room = JSON.parse(savedRoom);
+            selectedPlatform = room.platform || "";
+            currentVideoUrl = normalizeVideoSource(room.platform, room.videoUrl);
+            currentRoomName = room.name || "Вечер кино";
+        } catch (error) {
+            console.warn("VIBE room parse:", error);
+        }
     }
 
-    try {
-        const room = JSON.parse(savedRoom);
-        currentRoom = room.code;
-        selectedPlatform = room.platform;
-        currentVideoUrl = normalizeVideoSource(room.platform, room.videoUrl);
-        currentRoomName = room.name || "Вечер кино";
-        openWatchRoom();
-    } catch (error) {
-        console.error("VIBE room error:", error);
-        alert("Не удалось открыть комнату.");
-    }
+    // Даже без localStorage — заходим, URL придёт с сервера через room:join
+    openWatchRoom();
 }
 
-// =====================================================
-// BACK HOME
-// =====================================================
 
 if (backHome) {
     backHome.addEventListener("click", function () {
@@ -1819,9 +2591,6 @@ if (backHome) {
     });
 }
 
-// =====================================================
-// SHARE
-// =====================================================
 
 if (inviteButton) {
     inviteButton.addEventListener("click", async function () {
@@ -1842,9 +2611,6 @@ if (inviteButton) {
     });
 }
 
-// =====================================================
-// CHAT
-// =====================================================
 
 if (chatForm) {
     chatForm.addEventListener("submit", function (event) {
@@ -1907,50 +2673,51 @@ function addSystemMessage(text) {
     addChatMessage("VIBE", text);
 }
 
-// =====================================================
-// PLAY BUTTON (ОБНОВЛЕННАЯ СИНХРОНИЗАЦИЯ ДЛЯ VK И YOUTUBE)
-// =====================================================
 
-function toggleRoomPlayback() {
-    const nextState = !roomPlaybackRunning;
+// toggleRoomPlayback defined above (YouTube + VK + Rutube)
 
-    // Управляем локальным плеером в зависимости от платформы
-    if (selectedPlatform === "vk" && roomVkPlayer) {
-        if (nextState) {
-            if (typeof roomVkPlayer.play === "function") roomVkPlayer.play();
-        } else {
-            if (typeof roomVkPlayer.pause === "function") roomVkPlayer.pause();
+function bindPlayControl(el) {
+    if (!el || el.dataset.vibeBound) return;
+    el.dataset.vibeBound = "1";
+    el.style.pointerEvents = "auto";
+    el.style.touchAction = "manipulation";
+    el.style.zIndex = "35";
+    const go = function (e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
         }
-    } else if (selectedPlatform === "youtube") {
-        sendYouTubeCommand(nextState ? "playVideo" : "pauseVideo");
-    }
-
-    setPlaybackState(roomPlaybackSeconds, nextState, true);
+        toggleRoomPlayback();
+    };
+    el.addEventListener("click", go, { passive: false });
+    el.addEventListener("touchend", go, { passive: false });
 }
-
-if (playButton) playButton.addEventListener("click", toggleRoomPlayback);
-if (playerPlay) playerPlay.addEventListener("click", toggleRoomPlayback);
+bindPlayControl(playButton);
+bindPlayControl(playerPlay);
 
 if (playerProgress) {
     playerProgress.addEventListener("change", function () {
+        if (!isRoomHost && roomSocket && roomSocket.connected) return;
         const duration = Number(playerProgress.dataset.duration) || 0;
-        if (!duration) return;
-        const position = Number(playerProgress.value) / 100 * duration;
+        // Если длительность неизвестна — считаем 2 часа (для VK/Rutube пока нет duration)
+        const effectiveDuration = duration > 0 ? duration : 7200;
+        const position = Number(playerProgress.value) / 100 * effectiveDuration;
         roomPlaybackSeconds = position;
 
-        // Перемотка для YouTube и для VK
         if (selectedPlatform === "youtube") {
             sendYouTubeCommand("seekTo", [position, true]);
-        } else if (selectedPlatform === "vk" && roomVkPlayer && typeof roomVkPlayer.seek === "function") {
-            roomVkPlayer.seek(position);
+        } else if (selectedPlatform === "vk") {
+            if (roomVkPlayer && typeof roomVkPlayer.seek === "function") {
+                try { roomVkPlayer.seek(position); } catch (e) {}
+            } else {
+                syncVkViaEmbedReload(position, roomPlaybackRunning);
+            }
         } else if (selectedPlatform === "rutube") {
             sendRutubeCommand("player:setCurrentTime", { time: position });
+            sendRutubeCommand("player:seek", { time: position });
         }
 
-        if (roomSocket && roomSocket.connected) {
-            roomSocket.emit("room:playback", { position, playing: roomPlaybackRunning });
-        }
-        renderPlaybackTime();
+        setPlaybackState(position, roomPlaybackRunning, true);
     });
 }
 
@@ -1962,7 +2729,6 @@ if (playerMute) {
             playerMute.dataset.muted = String(!muted);
             playerMute.textContent = muted ? "🔊" : "🔇";
         }
-        // Для VK управление звуком идет через сам встроенный плеер VK
     });
 }
 
@@ -1978,9 +2744,6 @@ if (playerFullscreen) {
     });
 }
 
-// =====================================================
-// ROOMS PAGE — BACK & JOIN BY LINK
-// =====================================================
 
 if (roomsBack) {
     roomsBack.addEventListener("click", closeRoomsPage);
@@ -2067,9 +2830,6 @@ if (roomLinkButton) {
     });
 }
 
-// =====================================================
-// MOBILE NAVIGATION
-// =====================================================
 
 mobileNavItems.forEach(function (item) {
     item.addEventListener("click", function () {
@@ -2098,8 +2858,7 @@ mobileNavItems.forEach(function (item) {
         }
 
         if (nav === "news") {
-            // Заглушка для новостей
-            alert("Раздел «Новости» скоро появится!");
+            openNewsModal();
             return;
         }
 
@@ -2109,9 +2868,6 @@ mobileNavItems.forEach(function (item) {
     });
 });
 
-// =====================================================
-// AUTO OPEN ROOM FROM URL
-// =====================================================
 
 function openRoomFromUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -2119,36 +2875,34 @@ function openRoomFromUrl() {
     if (!roomCode) return;
 
     const cleanCode = roomCode.trim().toUpperCase();
-    const roomData = localStorage.getItem("vibe_room_" + cleanCode);
-    if (!roomData && params.get("platform") && params.get("video")) {
-        currentRoom = cleanCode;
-        selectedPlatform = params.get("platform");
-        currentVideoUrl = normalizeVideoSource(selectedPlatform, params.get("video"));
-        currentRoomName = params.get("name") || "Вечер кино";
-        openWatchRoom();
-        return;
-    }
-    if (!roomData) {
-        currentRoom = cleanCode;
-        openWatchRoom();
-        return;
+    currentRoom = cleanCode;
+    currentRoomName = params.get("name") || "Вечер кино";
+
+    const videoParam = params.get("video");
+    const platformParam = params.get("platform");
+    if (videoParam) {
+        selectedPlatform = platformParam || detectPlatformFromUrl(videoParam) || "";
+        currentVideoUrl = normalizeVideoSource(selectedPlatform || detectPlatformFromUrl(videoParam), videoParam);
+        if (!selectedPlatform) selectedPlatform = detectPlatformFromUrl(currentVideoUrl || videoParam);
+    } else {
+        currentVideoUrl = "";
+        selectedPlatform = "";
+        const roomData = localStorage.getItem("vibe_room_" + cleanCode);
+        if (roomData) {
+            try {
+                const room = JSON.parse(roomData);
+                selectedPlatform = room.platform || "";
+                currentVideoUrl = normalizeVideoSource(room.platform, room.videoUrl);
+                currentRoomName = room.name || currentRoomName;
+            } catch (error) {
+                console.error("VIBE URL room error:", error);
+            }
+        }
     }
 
-    try {
-        const room = JSON.parse(roomData);
-        currentRoom = room.code;
-        selectedPlatform = room.platform;
-        currentVideoUrl = normalizeVideoSource(room.platform, room.videoUrl);
-        currentRoomName = room.name || "Вечер кино";
-        openWatchRoom();
-    } catch (error) {
-        console.error("VIBE URL room error:", error);
-    }
+    openWatchRoom();
 }
 
-// =====================================================
-// ESC
-// =====================================================
 
 document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
@@ -2163,107 +2917,25 @@ document.addEventListener("keydown", function (event) {
         closeRoomsPage();
     } else if (catalogPage && !catalogPage.classList.contains("hidden")) {
         closeCatalogPage();
+    } else if (newsModal && !newsModal.classList.contains("hidden")) {
+        closeNewsModal();
     }
 });
 
 
 
-// =====================================================
-// START
-// =====================================================
 
 
 
-openRoomFromUrl();
+try {
+    openRoomFromUrl();
+} catch (e) {
+    console.warn("VIBE openRoomFromUrl:", e);
+}
 console.log("VIBE успешно запущен.");
 
-    // =====================================================
-// РАБОЧАЯ КНОПКА «ПОДЕЛИТЬСЯ КОМНАТОЙ» (В КОНЕЦ ФАЙЛА)
-// =====================================================
+window.addEventListener("error", function (ev) {
+    console.warn("VIBE page error:", ev && ev.message ? ev.message : ev);
+});
 
-function initializeShareButton() {
-    // Пытаемся найти фиолетовую кнопку «Поделиться комнатой» по разным возможным классам и ID
-    const shareBtn = document.querySelector(".share-room-btn") || 
-                     document.getElementById("shareRoomButton") || 
-                     document.querySelector("button[class*='share']");
 
-    if (!shareBtn) {
-        console.warn("VIBE: Кнопка 'Поделиться' не найдена в HTML-разметке.");
-        return;
-    }
-
-    // Принудительно делаем кнопку видимой, чтобы она не пропадала на смартфонах
-    shareBtn.classList.remove("hidden");
-    shareBtn.style.display = "flex";
-
-    // Навешиваем событие клика (копирование ссылки)
-    shareBtn.addEventListener("click", function () {
-        if (typeof currentRoom === "undefined" || !currentRoom) {
-            alert("Ошибка: Сначала создайте комнату или войдите в неё.");
-            return;
-        }
-
-        // Собираем параметры по схеме вашего JOIN BY LINK валидатора
-        const baseUrl = window.location.origin + window.location.pathname;
-        const searchParams = new URLSearchParams();
-        
-        searchParams.set("room", currentRoom);
-        if (typeof selectedPlatform !== "undefined" && selectedPlatform) searchParams.set("platform", selectedPlatform);
-        if (typeof currentVideoUrl !== "undefined" && currentVideoUrl) searchParams.set("video", currentVideoUrl);
-        if (typeof currentRoomName !== "undefined" && currentRoomName) searchParams.set("name", currentRoomName);
-
-        const shareLink = baseUrl + "?" + searchParams.toString();
-
-        // Копируем ссылку в буфер обмена (работает и на ПК, и на смартфонах)
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(shareLink).then(showSuccessAlert).catch(fallbackCopy);
-        } else {
-            fallbackCopy(shareLink);
-        }
-
-        function fallbackCopy(textToCopy) {
-            const textArea = document.createElement("textarea");
-            textArea.value = typeof textToCopy === "string" ? textToCopy : shareLink;
-            textArea.style.position = "fixed";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand("copy");
-                showSuccessAlert();
-            } catch (err) {
-                console.error("VIBE: Не удалось скопировать ссылку вручную", err);
-                alert("Скопируйте эту ссылку: " + shareLink);
-            }
-            document.body.removeChild(textArea);
-        }
-
-        function showSuccessAlert() {
-            console.log("VIBE: Ссылка скопирована успешно:", shareLink);
-            
-            // Временно меняем текст на кнопке для анимации
-            const originalText = shareBtn.innerHTML;
-            shareBtn.innerHTML = "✅ Ссылка скопирована!";
-            shareBtn.style.background = "#10b981"; // Зеленый цвет
-            
-            setTimeout(function() {
-                shareBtn.innerHTML = originalText;
-                shareBtn.style.background = ""; // Возвращаем фиолетовый
-            }, 2500);
-
-            if (typeof addSystemMessage === "function") {
-                addSystemMessage("Ссылка на комнату скопирована в буфер обмена.");
-            }
-        }
-    });
-}
-
-// Запускаем инициализацию кнопки при загрузке страницы
-window.addEventListener("DOMContentLoaded", initializeShareButton);
-
-// Перехватываем открытие комнаты, чтобы кнопка точно проверялась и включалась каждый раз
-const backupOpenWatchRoomForShare = window.openWatchRoom;
-window.openWatchRoom = function() {
-    if (typeof backupOpenWatchRoomForShare === 'function') backupOpenWatchRoomForShare();
-    initializeShareButton(); // Вызываем проверку кнопки повторно
-};

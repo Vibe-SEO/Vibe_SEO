@@ -2,10 +2,10 @@
   "name": "vibe-full",
   "version": "1.0.0",
   "description": "",
-  "main": "script.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check script.js"
+    "test": "node --check server.js && node --check vibe-core.js"
   },
   "repository": {
     "type": "git",
